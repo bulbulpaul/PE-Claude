@@ -1,0 +1,77 @@
+{
+  "overall_success": false,
+  "total_tests": 9,
+  "passed_tests": 2,
+  "failed_tests": 7,
+  "success_rate": 22.22222222222222,
+  "detailed_results": {
+    "AWS Credentials": {
+      "status": "❌ FAIL",
+      "success": false,
+      "message": "AWS credentials test failed: Error when retrieving credentials from custom-process: You need to authenticate with Midway. \nRun the following command before retrying: mwinit\n",
+      "details": {}
+    },
+    "Bedrock Configuration": {
+      "status": "✅ PASS",
+      "success": true,
+      "message": "Configuration validation completed",
+      "details": {
+        "AWS Region": "us-east-1",
+        "Model ID": "anthropic.claude-3-sonnet-20240229-v1:0",
+        "Max Tokens": 1000,
+        "Temperature": 0.0,
+        "Model Display Name": "claude-3-sonnet"
+      }
+    },
+    "Bedrock Client Init": {
+      "status": "❌ FAIL",
+      "success": false,
+      "message": "Client initialization failed: Error when retrieving credentials from custom-process: You need to authenticate with Midway. \nRun the following command before retrying: mwinit\n",
+      "details": {}
+    },
+    "Message Conversion": {
+      "status": "✅ PASS",
+      "success": true,
+      "message": "Message conversion tests completed",
+      "details": {
+        "Simple user message": "✅ Passed",
+        "User and assistant conversation": "✅ Passed",
+        "Message with system prompt (should be filtered)": "✅ Passed"
+      }
+    },
+    "Bedrock API Call": {
+      "status": "❌ FAIL",
+      "success": false,
+      "message": "No Bedrock client available",
+      "details": {}
+    },
+    "BedrockLLM Class": {
+      "status": "❌ FAIL",
+      "success": false,
+      "message": "BedrockLLM class test failed: Can't instantiate abstract class BedrockLLM without an implementation for abstract methods 'achat', 'acomplete', 'astream_chat', 'astream_complete', 'stream_chat', 'stream_complete'",
+      "details": {}
+    },
+    "RAG Functionality": {
+      "status": "❌ FAIL",
+      "success": false,
+      "message": "RAG loading failed: Can't instantiate abstract class BedrockLLM without an implementation for abstract methods 'achat', 'acomplete', 'astream_chat', 'astream_complete', 'stream_chat', 'stream_complete'",
+      "details": {}
+    },
+    "Error Handling": {
+      "status": "❌ FAIL",
+      "success": false,
+      "message": "Error handling tests completed (2/3 passed)",
+      "details": {
+        "Invalid Message Format": "✅ Correctly handled",
+        "Empty Messages": "✅ Correctly handled",
+        "Invalid Model ID": "⏭️ Skipped (no client)"
+      }
+    },
+    "Performance Metrics": {
+      "status": "❌ FAIL",
+      "success": false,
+      "message": "No Bedrock client available for performance testing",
+      "details": {}
+    }
+  }
+}

@@ -16,7 +16,7 @@ from . import llm
 from . import custom_responses
 
 # import functions
-from .llm import openai_init, rag_load, get_msg_history
+from .llm import bedrock_init, rag_load, get_msg_history
 from .custom_responses import response
 
 
@@ -30,7 +30,7 @@ __all__ = [
     
     
     # importable functions
-    openai_init,
+    bedrock_init,
     rag_load,
     get_msg_history,
     

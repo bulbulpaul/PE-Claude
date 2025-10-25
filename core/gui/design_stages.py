@@ -27,8 +27,8 @@ from ..llm.llm import get_msg_history
 from ..model_zoo.pann_dab import train_dab
 
 from llama_index.core.tools import FunctionTool
-from llama_index.agent.openai import OpenAIAgent
-from llama_index.llms.openai import OpenAI
+from llama_index.core.agent import ReActAgent
+from ..llm.llm import BedrockLLM
 
 
 
@@ -222,18 +222,32 @@ def other_tasks(client):
     """
     with st.spinner("Loading..."):
         st.write("Entering the last block")
-        response = client.chat.completions.create(
-            model=st.session_state["openai_model"],
-            messages=[
-                {"role": "system", "content": """You are now an expert in the power electronics industry, 
-                                             and you are proficient in optimal design of buck converter. Please answer the questions 
-                                             in a warm, positive and friendly manner. Keep your answer less than 150 words! Make sure 
-                                             your answers are professional and accurate -- don't hallucinate."""},
-                *[{"role": msg["role"], "content": msg["content"]} 
-                  for msg in st.session_state.messages] # provide all historical chat messages
-                    ], stream=False,)
-        st.write(response.choices[0].message.content) # get the first choice
-        messages = [{"role": "assistant", "content": response.choices[0].message.content}]
+        
+        # Import Bedrock chat completion function
+        from ..llm.llm import bedrock_chat_completion
+        
+        # Prepare messages for Bedrock
+        messages = [
+            {"role": "system", "content": """You are now an expert in the power electronics industry, 
+                                         and you are proficient in optimal design of buck converter. Please answer the questions 
+                                         in a warm, positive and friendly manner. Keep your answer less than 150 words! Make sure 
+                                         your answers are professional and accurate -- don't hallucinate."""},
+            *[{"role": msg["role"], "content": msg["content"]} 
+              for msg in st.session_state.messages] # provide all historical chat messages
+        ]
+        
+        # Use Bedrock chat completion
+        response = bedrock_chat_completion(
+            client=client,
+            messages=messages,
+            model_id=st.session_state.get("bedrock_model", "anthropic.claude-3-sonnet-20240229-v1:0"),
+            max_tokens=1000,
+            temperature=0.1
+        )
+        
+        content = response.get("content", "応答の生成に失敗しました")
+        st.write(content)
+        messages = [{"role": "assistant", "content": content}]
         return messages
 
 
@@ -345,8 +359,8 @@ def task_agent():
     train_pann_tool = FunctionTool.from_defaults(fn=train_pann_)
     other_tasks_tool = FunctionTool.from_defaults(fn=other_tasks_)
 
-    llm = OpenAI(model="gpt-3.5-turbo-1106")
-    agent = OpenAIAgent.from_tools(
+    llm = BedrockLLM(model_id="anthropic.claude-3-sonnet-20240229-v1:0")
+    agent = ReActAgent.from_tools(
         [init_design_tool, recommend_modulation_tool, evalualte_dab_tool, 
          simulation_verification_tool, pe_gpt_introduction_tool, train_pann_tool, 
          other_tasks_tool], llm=llm, verbose=True)

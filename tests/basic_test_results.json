@@ -1,0 +1,71 @@
+{
+  "overall_success": true,
+  "total_tests": 5,
+  "passed_tests": 5,
+  "failed_tests": 0,
+  "success_rate": 100.0,
+  "detailed_results": {
+    "File Structure": {
+      "status": "✅ PASS",
+      "success": true,
+      "message": "File structure check completed (5/5 required files found)",
+      "details": {
+        "Required: main.py": "✅ Exists",
+        "Required: core/llm/llm.py": "✅ Exists",
+        "Required: core/gui/gui.py": "✅ Exists",
+        "Required: core/gui/design_stages.py": "✅ Exists",
+        "Required: requirements.txt": "✅ Exists",
+        "Optional: AWS_SETUP.md": "✅ Exists",
+        "Optional: MIGRATION_GUIDE.md": "✅ Exists",
+        "Optional: README.md": "✅ Exists"
+      }
+    },
+    "Imports and Structure": {
+      "status": "✅ PASS",
+      "success": true,
+      "message": "Import tests completed (5/5 passed)",
+      "details": {
+        "Core LLM Imports": "✅ Success",
+        "Main Application": "✅ Success",
+        "GUI Modules": "✅ Success",
+        "Knowledge Base Structure": "✅ Found: core/knowledge/kb/database (5 files), core/knowledge/kb/database1 (1 files), core/knowledge/kb/introduction (1 files)",
+        "Requirements File": "✅ Contains required dependencies"
+      }
+    },
+    "Bedrock Configuration": {
+      "status": "✅ PASS",
+      "success": true,
+      "message": "Configuration validation completed",
+      "details": {
+        "AWS Region": "us-east-1",
+        "Model ID": "anthropic.claude-3-sonnet-20240229-v1:0",
+        "Max Tokens": 1000,
+        "Temperature": 0.0,
+        "Model Display Name": "claude-3-sonnet"
+      }
+    },
+    "Message Conversion": {
+      "status": "✅ PASS",
+      "success": true,
+      "message": "Message conversion tests completed",
+      "details": {
+        "Simple user message": "✅ Passed",
+        "User and assistant conversation": "✅ Passed",
+        "Message with system prompt (should be filtered)": "✅ Passed",
+        "Empty content handling": "✅ Passed",
+        "Invalid message format handling": "✅ Passed"
+      }
+    },
+    "Error Handling": {
+      "status": "✅ PASS",
+      "success": true,
+      "message": "Error handling tests completed (4/4 passed)",
+      "details": {
+        "Invalid Message Format": "✅ Correctly handled",
+        "Empty Messages": "✅ Correctly handled",
+        "Non-list Input": "✅ Correctly handled",
+        "BedrockError Creation": "✅ Correctly handled"
+      }
+    }
+  }
+}

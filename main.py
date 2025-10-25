@@ -13,7 +13,7 @@
 # from core.model_zoo.pann_dab_vars import *
 from core.gui.gui import build_gui, init_states, display_history
 from core.gui.design_stages import design_flow, task_agent
-from core.llm.llm import openai_init, rag_load
+from core.llm.llm import bedrock_init, rag_load
 
 
 
@@ -26,8 +26,8 @@ if __name__ == "__main__":
     # and enhance the PE expertise of predefined responses 
     FlexRes = True # whether to enable the flexible-response mode
 
-    llm_model = "gpt-4-0125-preview"
-    client = openai_init(openai_model=llm_model)
+    llm_model = "anthropic.claude-3-sonnet-20240229-v1:0"
+    client = bedrock_init(model_id=llm_model)
     build_gui()
         
     
@@ -37,15 +37,15 @@ if __name__ == "__main__":
     with open('core/knowledge/prompts/prompt.txt', 'r') as file:
         system_prompt = file.read()
     index0 = rag_load("core/knowledge/kb/database", llm_model, temperature=temperature, 
-                       chunk_size=chunk_size, system_prompt=system_prompt)
+                       chunk_size=chunk_size, system_prompt=system_prompt, use_bedrock=True)
     chat_engine0 = index0.as_chat_engine(chat_mode="context",similarity_top_k=top_k)
     # AGENT 1 specialized in modulation recommendation
     index1 = rag_load("core/knowledge/kb/database1", llm_model, temperature=temperature, 
-                       chunk_size=chunk_size, system_prompt=system_prompt)
+                       chunk_size=chunk_size, system_prompt=system_prompt, use_bedrock=True)
     chat_engine1 = index1.as_chat_engine(similarity_top_k=top_k)
     # AGENT 2 for self introduction
     index2 = rag_load("core/knowledge/kb/introduction", llm_model, temperature=temperature, 
-                       chunk_size=chunk_size)
+                       chunk_size=chunk_size, use_bedrock=True)
     chat_engine2 = index2.as_chat_engine(chat_mode="context",similarity_top_k=top_k)
     
     

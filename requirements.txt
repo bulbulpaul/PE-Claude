@@ -1,9 +1,12 @@
+boto3
 func_timeout
 llama_index
+llama-index-llms-bedrock
+llama-index-embeddings-bedrock
 matplotlib
 numpy
 onnxruntime
-openai
+
 pandas
 psutil
 pyswarms
