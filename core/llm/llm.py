@@ -35,17 +35,24 @@ class BedrockConfig:
     
     # Default values for configuration
     DEFAULT_REGION = "us-east-1"
-    DEFAULT_MODEL_ID = "anthropic.claude-haiku-4-5-20251001-v1:0"
+    DEFAULT_MODEL_ID = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
     DEFAULT_EMBEDDING_MODEL_ID = "amazon.titan-embed-text-v2:0"
     DEFAULT_MAX_TOKENS = 1000
     DEFAULT_TEMPERATURE = 0.0
     
-    # Available Claude models
+    # Available Claude models (verified with AWS Bedrock)
     AVAILABLE_MODELS = {
-        "claude-3.5-sonnet": "anthropic.claude-3-5-sonnet-20240620-v1:0",
-        "claude-3.5-sonnet-v2": "anthropic.claude-3-5-sonnet-20241022-v2:0",
-        "claude-3.7-sonnet": "anthropic.claude-3-7-sonnet-20250219-v1:0",
-        "claude-4.5-haiku": "anthropic.claude-haiku-4-5-20251001-v1:0"
+        # Claude 4.5 models using inference profiles (verified available in us-east-1)
+        "claude-4.5-sonnet": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        "claude-4.5-haiku": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        # Claude 4.0 models using inference profiles (verified available in us-east-1)
+        "claude-4-sonnet": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+        "claude-4-opus": "us.anthropic.claude-opus-4-20250514-v1:0",
+        "claude-4.1-opus": "us.anthropic.claude-opus-4-1-20250805-v1:0",
+        # Global inference profiles (alternative)
+        "claude-4.5-sonnet-global": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        "claude-4.5-haiku-global": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "claude-4-sonnet-global": "global.anthropic.claude-sonnet-4-20250514-v1:0"
     }
     
     def __init__(self):
@@ -73,8 +80,9 @@ class BedrockConfig:
             st.warning(f"Invalid AWS region format: {self.aws_region}. Using default: {self.DEFAULT_REGION}")
             self.aws_region = self.DEFAULT_REGION
         
-        # Validate model ID format
-        if not self.bedrock_model_id.startswith(('anthropic.', 'amazon.')):
+        # Validate model ID format (including cross-region inference profiles)
+        valid_prefixes = ('anthropic.', 'amazon.', 'us.anthropic.', 'eu.anthropic.')
+        if not self.bedrock_model_id.startswith(valid_prefixes):
             st.warning(f"Invalid model ID format: {self.bedrock_model_id}. Using default: {self.DEFAULT_MODEL_ID}")
             self.bedrock_model_id = self.DEFAULT_MODEL_ID
         
@@ -264,7 +272,7 @@ class BedrockLLM(LLM):
                 raise BedrockError("メッセージが提供されていません", "EmptyMessages")
             
             # Convert llama_index messages to OpenAI format for our conversion function
-            openai_messages = []
+            bedrock_messages = []
             print(f"DEBUG: Processing {len(messages)} messages")
             
             for i, msg in enumerate(messages):
@@ -284,23 +292,23 @@ class BedrockLLM(LLM):
                         print(f"DEBUG: Skipping message {i+1} - empty content")
                         continue
                         
-                    openai_messages.append({"role": role, "content": str(content)})
+                    bedrock_messages.append({"role": role, "content": str(content)})
                     print(f"DEBUG: Added message {i+1}: {role} - {str(content)[:100]}...")
                     
                 except Exception as e:
                     print(f"DEBUG: Error processing message {i+1}: {str(e)}")
                     continue
             
-            print(f"DEBUG: Final openai_messages count: {len(openai_messages)}")
+            print(f"DEBUG: Final bedrock_messages count: {len(bedrock_messages)}")
             
-            if not openai_messages:
+            if not bedrock_messages:
                 raise BedrockError("有効なメッセージがありません", "NoValidMessages")
             
             # Use our bedrock_chat_completion function
             client = self._get_client()
             response = bedrock_chat_completion(
                 client=client,
-                messages=openai_messages,
+                messages=bedrock_messages,
                 model_id=self.model_id,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
@@ -425,9 +433,10 @@ def rag_load(database_folder, llm_model=None,
         from llama_index.core.settings import Settings
         from llama_index.embeddings.bedrock import BedrockEmbedding
         
-        # Set up Bedrock embedding model
+        # Set up Bedrock embedding model using config default
+        config = BedrockConfig()
         embed_model = BedrockEmbedding(
-            model_name="amazon.titan-embed-text-v1",
+            model_name=config.bedrock_embedding_model_id,
             region_name=llm.region
         )
         
@@ -472,6 +481,7 @@ def convert_messages_to_bedrock_format(openai_messages):
             raise BedrockError("メッセージはリスト形式である必要があります", "InvalidMessageType")
         
         bedrock_messages = []
+        system_messages = []  # Collect system messages separately
         valid_roles = {"user", "assistant", "system"}
         
         for i, msg in enumerate(openai_messages):
@@ -493,8 +503,10 @@ def convert_messages_to_bedrock_format(openai_messages):
                     st.warning(f"メッセージ {i+1} の無効なrole: {role}。スキップします。")
                     continue
                 
-                # Skip system messages as Claude handles them differently
+                # Collect system messages separately for Claude 4.5
                 if role == "system":
+                    if content and isinstance(content, str) and len(content.strip()) > 0:
+                        system_messages.append(content.strip())
                     continue
                 
                 # Validate content
@@ -507,6 +519,7 @@ def convert_messages_to_bedrock_format(openai_messages):
                     content = str(content)
                 
                 # Convert role and content to Bedrock format
+                # Use string format for compatibility with all Claude models
                 bedrock_msg = {
                     "role": role,  # "user" or "assistant"
                     "content": content.strip()
@@ -583,8 +596,10 @@ def bedrock_chat_completion(client, messages, model_id=None, **kwargs):
         max_tokens = kwargs.get("max_tokens", 1000)
         temperature = kwargs.get("temperature", 0.0)
         
-        # Validate parameters
-        if not isinstance(max_tokens, int) or max_tokens < 1 or max_tokens > 4096:
+        # Validate parameters - Claude 4+ models may have different limits
+        max_token_limit = 8192 if ("claude-4" in model_id or "claude-sonnet-4" in model_id or "claude-haiku-4" in model_id or "claude-opus-4" in model_id) else 4096
+        
+        if not isinstance(max_tokens, int) or max_tokens < 1 or max_tokens > max_token_limit:
             st.warning(f"無効なmax_tokens値: {max_tokens}。デフォルト値1000を使用します。")
             max_tokens = 1000
         
@@ -592,8 +607,14 @@ def bedrock_chat_completion(client, messages, model_id=None, **kwargs):
             st.warning(f"無効なtemperature値: {temperature}。デフォルト値0.0を使用します。")
             temperature = 0.0
         
+        # Use appropriate API version based on model
+        if "claude-4" in model_id or "sonnet-4" in model_id or "haiku-4" in model_id or "opus-4" in model_id:
+            anthropic_version = "bedrock-2023-05-31"  # Claude 4+ models
+        else:
+            anthropic_version = "bedrock-2023-05-31"  # Standard version
+        
         request_body = {
-            "anthropic_version": "bedrock-2023-05-31",
+            "anthropic_version": anthropic_version,
             "max_tokens": max_tokens,
             "messages": bedrock_messages
         }
@@ -609,6 +630,17 @@ def bedrock_chat_completion(client, messages, model_id=None, **kwargs):
         
         # Log request details for debugging (without sensitive content)
         st.info(f"Bedrock API呼び出し: モデル={model_id}, メッセージ数={len(bedrock_messages)}, max_tokens={max_tokens}")
+        
+        # Debug: Log request body structure (without content)
+        debug_info = {
+            "anthropic_version": request_body.get("anthropic_version"),
+            "max_tokens": request_body.get("max_tokens"),
+            "temperature": request_body.get("temperature"),
+            "has_system": "system" in request_body,
+            "message_count": len(request_body.get("messages", [])),
+            "message_roles": [msg.get("role") for msg in request_body.get("messages", [])]
+        }
+        print(f"DEBUG: Request structure: {debug_info}")
         
         # Call Bedrock API with retry logic
         response = robust_bedrock_call(client, model_id, request_body)
@@ -672,8 +704,8 @@ def get_user_friendly_error_message(error_code: str, error_message: str, model_i
         },
         'ValidationException': {
             'title': '📝 **リクエストパラメータエラー**',
-            'message': 'リクエストの形式が正しくありません。',
-            'action': '• 入力内容を確認してください\n• メッセージが長すぎる場合は短くしてください'
+            'message': f'リクエストの形式が正しくありません。\n\n**詳細エラー:** {error_message}',
+            'action': f'• 入力内容を確認してください\n• メッセージが長すぎる場合は短くしてください\n• モデルID: {model_id if model_id else "未指定"}\n• Claude 4/4.5はinference profileを使用:\n  - Claude 4.5: us.anthropic.claude-sonnet-4-5-20250929-v1:0, us.anthropic.claude-haiku-4-5-20251001-v1:0\n  - Claude 4.0: us.anthropic.claude-sonnet-4-20250514-v1:0, us.anthropic.claude-opus-4-20250514-v1:0'
         },
         'AccessDeniedException': {
             'title': '🔒 **アクセス権限エラー**',
@@ -729,6 +761,15 @@ def robust_bedrock_call(client, model_id, request_body, max_retries=3):
             # Log attempt for debugging
             if attempt > 0:
                 st.info(f"Bedrock API呼び出し試行 {attempt + 1}/{max_retries}")
+            
+            # Debug: Log request details on first attempt or if debugging is enabled
+            if attempt == 0:
+                print(f"DEBUG: Bedrock Request - Model: {model_id}")
+                print(f"DEBUG: Request body keys: {list(request_body.keys())}")
+                if 'messages' in request_body:
+                    print(f"DEBUG: Messages count: {len(request_body['messages'])}")
+                    for i, msg in enumerate(request_body['messages']):
+                        print(f"DEBUG: Message {i}: role={msg.get('role')}, content_type={type(msg.get('content'))}")
             
             response = client.invoke_model(
                 modelId=model_id,

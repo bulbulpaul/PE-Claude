@@ -236,11 +236,15 @@ def other_tasks(client):
               for msg in st.session_state.messages] # provide all historical chat messages
         ]
         
+        # Import BedrockConfig to get default model
+        from ..llm.llm import BedrockConfig
+        config = BedrockConfig()
+        
         # Use Bedrock chat completion
         response = bedrock_chat_completion(
             client=client,
             messages=messages,
-            model_id=st.session_state.get("bedrock_model", "anthropic.claude-3-sonnet-20240229-v1:0"),
+            model_id=st.session_state.get("bedrock_model", config.bedrock_model_id),
             max_tokens=1000,
             temperature=0.1
         )
@@ -359,7 +363,8 @@ def task_agent():
     train_pann_tool = FunctionTool.from_defaults(fn=train_pann_)
     other_tasks_tool = FunctionTool.from_defaults(fn=other_tasks_)
 
-    llm = BedrockLLM(model_id="anthropic.claude-3-sonnet-20240229-v1:0")
+    # Use BedrockConfig default model instead of hardcoded value
+    llm = BedrockLLM()  # Will use BedrockConfig defaults
     agent = ReActAgent.from_tools(
         [init_design_tool, recommend_modulation_tool, evalualte_dab_tool, 
          simulation_verification_tool, pe_gpt_introduction_tool, train_pann_tool, 

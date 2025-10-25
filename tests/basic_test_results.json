@@ -1,7 +1,7 @@
 {
   "overall_success": true,
-  "total_tests": 5,
-  "passed_tests": 5,
+  "total_tests": 6,
+  "passed_tests": 6,
   "failed_tests": 0,
   "success_rate": 100.0,
   "detailed_results": {
@@ -16,7 +16,7 @@
         "Required: core/gui/design_stages.py": "✅ Exists",
         "Required: requirements.txt": "✅ Exists",
         "Optional: AWS_SETUP.md": "✅ Exists",
-        "Optional: MIGRATION_GUIDE.md": "✅ Exists",
+        "Optional: MIGRATION_GUIDE.md": "⚠️ Missing",
         "Optional: README.md": "✅ Exists"
       }
     },
@@ -38,10 +38,10 @@
       "message": "Configuration validation completed",
       "details": {
         "AWS Region": "us-east-1",
-        "Model ID": "anthropic.claude-3-sonnet-20240229-v1:0",
+        "Model ID": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         "Max Tokens": 1000,
         "Temperature": 0.0,
-        "Model Display Name": "claude-3-sonnet"
+        "Model Display Name": "claude-4.5-sonnet"
       }
     },
     "Message Conversion": {
@@ -54,6 +54,19 @@
         "Message with system prompt (should be filtered)": "✅ Passed",
         "Empty content handling": "✅ Passed",
         "Invalid message format handling": "✅ Passed"
+      }
+    },
+    "Bedrock API Call": {
+      "status": "✅ PASS",
+      "success": true,
+      "message": "API call successful",
+      "details": {
+        "Response Time": "3.09 seconds",
+        "Content Length": 19,
+        "Model Used": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        "Input Tokens": 26,
+        "Output Tokens": 6,
+        "Response Preview": "API test successful"
       }
     },
     "Error Handling": {

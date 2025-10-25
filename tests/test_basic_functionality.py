@@ -201,6 +201,137 @@ class BasicTestRunner:
             )
             return False
 
+    def test_bedrock_api_call(self) -> bool:
+        """Test actual Bedrock API call (requires AWS credentials)"""
+        print("🌐 Testing Bedrock API Call...")
+        
+        try:
+            # Check if AWS credentials are available
+            import boto3
+            from botocore.exceptions import NoCredentialsError, ClientError
+            
+            try:
+                session = boto3.Session()
+                credentials = session.get_credentials()
+                if not credentials:
+                    self.log_test_result(
+                        "Bedrock API Call", 
+                        False, 
+                        "No AWS credentials found - skipping API test",
+                        {"Note": "Set up AWS credentials to enable this test"}
+                    )
+                    return False
+            except Exception as e:
+                self.log_test_result(
+                    "Bedrock API Call", 
+                    False, 
+                    f"AWS credentials check failed: {str(e)}"
+                )
+                return False
+            
+            # Import Bedrock functions
+            from core.llm.llm import bedrock_init, bedrock_chat_completion, BedrockConfig
+            
+            # Initialize Bedrock client
+            try:
+                client = bedrock_init()
+                if not client:
+                    self.log_test_result(
+                        "Bedrock API Call", 
+                        False, 
+                        "Failed to initialize Bedrock client"
+                    )
+                    return False
+            except Exception as e:
+                self.log_test_result(
+                    "Bedrock API Call", 
+                    False, 
+                    f"Bedrock client initialization failed: {str(e)}"
+                )
+                return False
+            
+            # Get configuration
+            config = BedrockConfig()
+            
+            # Simple test message
+            test_messages = [
+                {"role": "user", "content": "Hello! Please respond with exactly 'API test successful' to confirm the connection is working."}
+            ]
+            
+            # Record start time
+            import time
+            start_time = time.time()
+            
+            # Make API call
+            try:
+                response = bedrock_chat_completion(
+                    client=client,
+                    messages=test_messages,
+                    model_id=config.bedrock_model_id,
+                    max_tokens=50,
+                    temperature=0.0
+                )
+                
+                end_time = time.time()
+                response_time = end_time - start_time
+                
+                # Validate response
+                if not response or not isinstance(response, dict):
+                    self.log_test_result(
+                        "Bedrock API Call", 
+                        False, 
+                        "Invalid response format"
+                    )
+                    return False
+                
+                if "content" not in response or not response["content"]:
+                    self.log_test_result(
+                        "Bedrock API Call", 
+                        False, 
+                        "No content in response"
+                    )
+                    return False
+                
+                # Check for error in response
+                if "error" in response:
+                    self.log_test_result(
+                        "Bedrock API Call", 
+                        False, 
+                        f"API returned error: {response['error']}"
+                    )
+                    return False
+                
+                self.log_test_result(
+                    "Bedrock API Call", 
+                    True, 
+                    "API call successful",
+                    {
+                        "Response Time": f"{response_time:.2f} seconds",
+                        "Content Length": len(response["content"]),
+                        "Model Used": config.bedrock_model_id,
+                        "Input Tokens": response.get("usage", {}).get("input_tokens", "Unknown"),
+                        "Output Tokens": response.get("usage", {}).get("output_tokens", "Unknown"),
+                        "Response Preview": response["content"][:100] + "..." if len(response["content"]) > 100 else response["content"]
+                    }
+                )
+                return True
+                
+            except Exception as e:
+                self.log_test_result(
+                    "Bedrock API Call", 
+                    False, 
+                    f"API call failed: {str(e)}"
+                )
+                return False
+            
+        except Exception as e:
+            self.log_test_result(
+                "Bedrock API Call", 
+                False, 
+                f"Bedrock API test failed: {str(e)}"
+            )
+            return False
+
     def test_error_handling(self) -> bool:
         """Test error handling mechanisms"""
         print("⚠️ Testing Error Handling...")
@@ -411,6 +542,7 @@ class BasicTestRunner:
             ("Imports and Structure", self.test_imports_and_structure),
             ("Bedrock Configuration", self.test_bedrock_config),
             ("Message Conversion", self.test_message_conversion),
+            ("Bedrock API Call", self.test_bedrock_api_call),
             ("Error Handling", self.test_error_handling)
         ]
         
@@ -467,7 +599,8 @@ class BasicTestRunner:
 def main():
     """Main function to run basic tests"""
     print("🔧 PE-GPT Bedrock Migration - Basic Test Suite")
-    print("This script tests components that don't require AWS credentials.")
+    print("This script tests basic components and includes Bedrock API call test.")
+    print("Note: Bedrock API test requires AWS credentials to be configured.")
     print()
     
     # Check if running in correct directory
@@ -480,7 +613,7 @@ def main():
     results = runner.run_all_tests()
     
     # Save results to file
-    results_file = "basic_test_results.json"
+    results_file = "tests/basic_test_results.json"
     try:
         with open(results_file, 'w', encoding='utf-8') as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
