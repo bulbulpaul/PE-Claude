@@ -37,7 +37,7 @@ class BedrockConfig:
     DEFAULT_REGION = "us-east-1"
     DEFAULT_MODEL_ID = "anthropic.claude-haiku-4-5-20251001-v1:0"
     DEFAULT_EMBEDDING_MODEL_ID = "amazon.titan-embed-text-v2:0"
-    DEFAULT_MAX_TOKENS = 10000
+    DEFAULT_MAX_TOKENS = 1000
     DEFAULT_TEMPERATURE = 0.0
     
     # Available Claude models
@@ -208,19 +208,19 @@ class BedrockLLM(LLM):
     Custom LLM class for Amazon Bedrock Claude integration with llama_index
     """
     
-    model_id: str = "anthropic.claude-3-sonnet-20240229-v1:0"
-    region: str = "us-east-1"
-    temperature: float = 0.0
-    max_tokens: int = 1000
-    system_prompt: str = ""
+    model_id: str
+    region: str
+    temperature: float
+    max_tokens: int
+    system_prompt: str
     client: object = None
     
     def __init__(self, model_id: str = None, region: str = None, temperature: float = None, 
                  max_tokens: int = None, system_prompt: str = None, **kwargs):
-        # Initialize configuration
+        # Initialize configuration to get default values
         config = BedrockConfig()
         
-        # Prepare data for Pydantic initialization
+        # Prepare data for Pydantic initialization using BedrockConfig defaults
         data = {
             'model_id': model_id or config.bedrock_model_id,
             'region': region or config.aws_region,
@@ -387,7 +387,7 @@ class BedrockLLM(LLM):
 
 # Specialized multi-agents to handle different tasks with Retrieval Augmented Generation (RAG)
 @st.cache_resource(show_spinner=False)
-def rag_load(database_folder, llm_model, 
+def rag_load(database_folder, llm_model=None, 
               temperature=None, chunk_size=None, system_prompt=None, use_bedrock=True):
     """
     This function is the retrieval-augmented generation (RAG) for LLM
@@ -395,7 +395,7 @@ def rag_load(database_folder, llm_model,
     
     Args:
         database_folder: Path to documents folder
-        llm_model: Bedrock model ID (e.g., anthropic.claude-3-sonnet-20240229-v1:0)
+        llm_model: Optional Bedrock model ID (uses BedrockConfig default if None)
         temperature: Model temperature (default: 0.0)
         chunk_size: Document chunk size (default: 1024)
         system_prompt: System prompt for the model
@@ -411,12 +411,15 @@ def rag_load(database_folder, llm_model,
         node_parser = SimpleNodeParser.from_defaults(chunk_size=chunk_size)
         nodes = node_parser.get_nodes_from_documents(docs)
         
-        # Use Bedrock Claude model
-        llm = BedrockLLM(
-            model_id=llm_model,
-            temperature=temperature,
-            system_prompt=system_prompt
-        )
+        # Use Bedrock Claude model with BedrockConfig defaults
+        llm_kwargs = {
+            'temperature': temperature,
+            'system_prompt': system_prompt
+        }
+        if llm_model is not None:
+            llm_kwargs['model_id'] = llm_model
+            
+        llm = BedrockLLM(**llm_kwargs)
         
         # Use the new Settings API instead of deprecated ServiceContext
         from llama_index.core.settings import Settings
