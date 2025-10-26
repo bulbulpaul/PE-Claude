@@ -6,10 +6,10 @@ llama-index-embeddings-bedrock
 matplotlib
 numpy
 onnxruntime
-
 pandas
 psutil
 pyswarms
+requests
 scipy
 streamlit
 torch

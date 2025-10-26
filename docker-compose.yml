@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  pe-gpt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pe-gpt:latest
+    container_name: pe-gpt-app
+    ports:
+      - "8501:8501"
+    environment:
+      - AWS_DEFAULT_REGION=us-east-1
+      # Uncomment and set these for Bedrock integration
+      # - BEDROCK_KB_ID=your-knowledge-base-id
+      # - AWS_ACCESS_KEY_ID=your-access-key
+      # - AWS_SECRET_ACCESS_KEY=your-secret-key
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Uncomment for development with volume mounting
+    # volumes:
+    #   - .:/app
+    networks:
+      - pe-gpt-network
+
+networks:
+  pe-gpt-network:
+    driver: bridge

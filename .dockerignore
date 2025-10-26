@@ -1,0 +1,100 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+venv-*/
+env/
+ENV/
+.venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+report.log
+
+# Test files and coverage
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation
+*.md
+docs/
+tutorial/
+
+# Docker files (avoid recursive copying)
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# AWS and deployment files
+.aws/
+*.pem
+*.key
+
+# Jupyter notebooks (if any)
+.ipynb_checkpoints/
+*.ipynb
+
+# Large model files that should be downloaded at runtime
+*.onnx
+*.pt
+*.pth
+*.h5
+
+# Kiro specs (not needed in container)
+.kiro/
+
+# Setup and configuration scripts
+setup_*.sh
+AWS_SETUP.md
+KNOWLEDGE_BASE_SETUP.md
+LICENSE
+README.md
