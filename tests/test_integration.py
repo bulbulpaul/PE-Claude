@@ -561,6 +561,322 @@ class IntegrationTestRunner:
             )
             return False
 
+    def test_enhanced_rag_functionality(self) -> bool:
+        """Test Enhanced RAG functionality with KnowledgeBase integration"""
+        print("🚀 Testing Enhanced RAG Functionality...")
+        
+        try:
+            from core.llm.llm import enhanced_rag_load
+            from core.knowledge.kb_config import KnowledgeBaseConfig
+            
+            # Check if knowledge base directories exist
+            kb_paths = [
+                "core/knowledge/kb/database",
+                "core/knowledge/kb/database1", 
+                "core/knowledge/kb/introduction"
+            ]
+            
+            existing_paths = []
+            for path in kb_paths:
+                if os.path.exists(path) and os.path.isdir(path):
+                    files = [f for f in os.listdir(path) if f.endswith('.txt')]
+                    if files:
+                        existing_paths.append(path)
+            
+            test_results = {}
+            
+            # Test 1: Local-only mode (backward compatibility)
+            if existing_paths:
+                try:
+                    print("    Testing local-only mode...")
+                    local_index = enhanced_rag_load(
+                        database_folder=existing_paths[0],
+                        knowledge_base_config=None,
+                        llm_model=self.config.bedrock_model_id if self.config else None,
+                        temperature=0.1,
+                        chunk_size=512
+                    )
+                    
+                    if local_index is None:
+                        test_results["Local-only Mode"] = "❌ Index creation failed"
+                    else:
+                        # Test chat engine creation
+                        chat_engine = local_index.as_chat_engine(similarity_top_k=3)
+                        if chat_engine:
+                            test_results["Local-only Mode"] = "✅ Successful"
+                        else:
+                            test_results["Local-only Mode"] = "❌ Chat engine creation failed"
+                            
+                except Exception as e:
+                    test_results["Local-only Mode"] = f"❌ Exception: {str(e)}"
+            else:
+                test_results["Local-only Mode"] = "⏭️ Skipped (no local files)"
+            
+            # Test 2: Mock Bedrock-only mode (configuration test)
+            try:
+                print("    Testing Bedrock-only configuration...")
+                mock_config = KnowledgeBaseConfig(
+                    knowledge_base_id="MOCK123456",
+                    region="us-east-1",
+                    mode="bedrock",
+                    similarity_top_k=5
+                )
+                
+                # This should fail gracefully since we don't have a real KnowledgeBase
+                try:
+                    bedrock_index = enhanced_rag_load(
+                        database_folder=None,
+                        knowledge_base_config=mock_config,
+                        llm_model=self.config.bedrock_model_id if self.config else None
+                    )
+                    test_results["Bedrock Configuration"] = "⚠️ Unexpected success with mock config"
+                except Exception as e:
+                    # Expected to fail with mock config
+                    if "認証" in str(e) or "初期化" in str(e) or "AWS" in str(e):
+                        test_results["Bedrock Configuration"] = "✅ Correctly handled invalid config"
+                    else:
+                        test_results["Bedrock Configuration"] = f"⚠️ Unexpected error: {str(e)}"
+                        
+            except Exception as e:
+                test_results["Bedrock Configuration"] = f"❌ Config test failed: {str(e)}"
+            
+            # Test 3: Hybrid mode with fallback (should fall back to local)
+            if existing_paths:
+                try:
+                    print("    Testing hybrid mode with fallback...")
+                    mock_config = KnowledgeBaseConfig(
+                        knowledge_base_id="MOCK123456",
+                        region="us-east-1",
+                        mode="hybrid",
+                        enable_fallback=True,
+                        similarity_top_k=5
+                    )
+                    
+                    hybrid_index = enhanced_rag_load(
+                        database_folder=existing_paths[0],
+                        knowledge_base_config=mock_config,
+                        llm_model=self.config.bedrock_model_id if self.config else None
+                    )
+                    
+                    if hybrid_index:
+                        # Test retriever info
+                        if hasattr(hybrid_index, 'get_retriever_info'):
+                            info = hybrid_index.get_retriever_info()
+                            test_results["Hybrid Mode Fallback"] = "✅ Successful with fallback"
+                        else:
+                            test_results["Hybrid Mode Fallback"] = "✅ Fallback to local mode"
+                    else:
+                        test_results["Hybrid Mode Fallback"] = "❌ Failed to create index"
+                        
+                except Exception as e:
+                    test_results["Hybrid Mode Fallback"] = f"❌ Exception: {str(e)}"
+            else:
+                test_results["Hybrid Mode Fallback"] = "⏭️ Skipped (no local files)"
+            
+            # Test 4: Error handling for invalid configurations
+            try:
+                print("    Testing error handling...")
+                
+                # Test with no sources
+                try:
+                    enhanced_rag_load(database_folder=None, knowledge_base_config=None)
+                    test_results["Error Handling"] = "❌ Should have raised error for no sources"
+                except ValueError as e:
+                    if "少なくとも" in str(e):
+                        test_results["Error Handling"] = "✅ Correctly handled no sources error"
+                    else:
+                        test_results["Error Handling"] = f"⚠️ Unexpected error message: {str(e)}"
+                except Exception as e:
+                    test_results["Error Handling"] = f"⚠️ Unexpected exception type: {type(e).__name__}"
+                    
+            except Exception as e:
+                test_results["Error Handling"] = f"❌ Error handling test failed: {str(e)}"
+            
+            # Count successful tests
+            successful_tests = sum(1 for result in test_results.values() if "✅" in result)
+            total_enhanced_tests = len(test_results)
+            
+            self.log_test_result(
+                "Enhanced RAG Functionality", 
+                successful_tests >= total_enhanced_tests // 2,  # At least half should pass
+                f"Enhanced RAG tests completed ({successful_tests}/{total_enhanced_tests} passed)",
+                test_results
+            )
+            return successful_tests >= total_enhanced_tests // 2
+            
+        except ImportError as e:
+            self.log_test_result(
+                "Enhanced RAG Functionality", 
+                False, 
+                f"Import error: {str(e)} - Enhanced RAG components not available"
+            )
+            return False
+            
+        except Exception as e:
+            self.log_test_result(
+                "Enhanced RAG Functionality", 
+                False, 
+                f"Enhanced RAG functionality test failed: {str(e)}"
+            )
+            return False
+
+    def test_chat_engine_integration(self) -> bool:
+        """Test chat engine integration with enhanced RAG"""
+        print("💬 Testing Chat Engine Integration...")
+        
+        try:
+            from core.llm.llm import enhanced_rag_load
+            
+            # Check if knowledge base directories exist
+            kb_paths = [
+                "core/knowledge/kb/database",
+                "core/knowledge/kb/database1", 
+                "core/knowledge/kb/introduction"
+            ]
+            
+            existing_paths = []
+            for path in kb_paths:
+                if os.path.exists(path) and os.path.isdir(path):
+                    files = [f for f in os.listdir(path) if f.endswith('.txt')]
+                    if files:
+                        existing_paths.append(path)
+            
+            if not existing_paths:
+                self.log_test_result(
+                    "Chat Engine Integration", 
+                    False, 
+                    "No knowledge base directories available for testing"
+                )
+                return False
+            
+            test_results = {}
+            
+            try:
+                print("    Creating enhanced RAG index...")
+                enhanced_index = enhanced_rag_load(
+                    database_folder=existing_paths[0],
+                    knowledge_base_config=None,  # Local-only for testing
+                    llm_model=self.config.bedrock_model_id if self.config else None,
+                    temperature=0.1,
+                    chunk_size=512
+                )
+                
+                if enhanced_index is None:
+                    test_results["Index Creation"] = "❌ Failed"
+                    self.log_test_result(
+                        "Chat Engine Integration", 
+                        False, 
+                        "Enhanced index creation failed",
+                        test_results
+                    )
+                    return False
+                
+                test_results["Index Creation"] = "✅ Successful"
+                
+                # Test retriever creation
+                try:
+                    retriever = enhanced_index.as_retriever(similarity_top_k=3)
+                    if retriever:
+                        test_results["Retriever Creation"] = "✅ Successful"
+                        
+                        # Test retrieval
+                        try:
+                            results = retriever.retrieve("power electronics")
+                            if results and len(results) > 0:
+                                test_results["Document Retrieval"] = f"✅ Retrieved {len(results)} documents"
+                            else:
+                                test_results["Document Retrieval"] = "⚠️ No documents retrieved"
+                        except Exception as e:
+                            test_results["Document Retrieval"] = f"❌ Retrieval failed: {str(e)}"
+                    else:
+                        test_results["Retriever Creation"] = "❌ Failed"
+                        
+                except Exception as e:
+                    test_results["Retriever Creation"] = f"❌ Exception: {str(e)}"
+                
+                # Test query engine creation
+                try:
+                    query_engine = enhanced_index.as_query_engine(similarity_top_k=3)
+                    if query_engine:
+                        test_results["Query Engine Creation"] = "✅ Successful"
+                        
+                        # Test query (optional - might be slow)
+                        try:
+                            response = query_engine.query("What is power electronics?")
+                            if response and hasattr(response, 'response') and response.response:
+                                test_results["Query Test"] = "✅ Query successful"
+                            else:
+                                test_results["Query Test"] = "⚠️ Empty response"
+                        except Exception as e:
+                            test_results["Query Test"] = f"⚠️ Query failed: {str(e)}"
+                    else:
+                        test_results["Query Engine Creation"] = "❌ Failed"
+                        
+                except Exception as e:
+                    test_results["Query Engine Creation"] = f"❌ Exception: {str(e)}"
+                
+                # Test chat engine creation
+                try:
+                    chat_engine = enhanced_index.as_chat_engine(similarity_top_k=3)
+                    if chat_engine:
+                        test_results["Chat Engine Creation"] = "✅ Successful"
+                        
+                        # Test chat (optional - might be slow)
+                        try:
+                            response = chat_engine.chat("Hello, can you help me with power electronics?")
+                            if response and hasattr(response, 'response') and response.response:
+                                test_results["Chat Test"] = "✅ Chat successful"
+                            else:
+                                test_results["Chat Test"] = "⚠️ Empty chat response"
+                        except Exception as e:
+                            test_results["Chat Test"] = f"⚠️ Chat failed: {str(e)}"
+                    else:
+                        test_results["Chat Engine Creation"] = "❌ Failed"
+                        
+                except Exception as e:
+                    test_results["Chat Engine Creation"] = f"❌ Exception: {str(e)}"
+                
+                # Test backward compatibility methods
+                try:
+                    if hasattr(enhanced_index, 'get_nodes'):
+                        nodes = enhanced_index.get_nodes()
+                        test_results["Backward Compatibility"] = "✅ get_nodes method available"
+                    else:
+                        test_results["Backward Compatibility"] = "⚠️ get_nodes method not available"
+                except Exception as e:
+                    test_results["Backward Compatibility"] = f"⚠️ Compatibility test failed: {str(e)}"
+                
+            except Exception as e:
+                test_results["Index Creation"] = f"❌ Exception: {str(e)}"
+            
+            # Count successful tests
+            successful_tests = sum(1 for result in test_results.values() if "✅" in result)
+            total_integration_tests = len(test_results)
+            
+            self.log_test_result(
+                "Chat Engine Integration", 
+                successful_tests >= total_integration_tests // 2,  # At least half should pass
+                f"Chat engine integration tests completed ({successful_tests}/{total_integration_tests} passed)",
+                test_results
+            )
+            return successful_tests >= total_integration_tests // 2
+            
+        except ImportError as e:
+            self.log_test_result(
+                "Chat Engine Integration", 
+                False, 
+                f"Import error: {str(e)} - Enhanced RAG components not available"
+            )
+            return False
+            
+        except Exception as e:
+            self.log_test_result(
+                "Chat Engine Integration", 
+                False, 
+                f"Chat engine integration test failed: {str(e)}"
+            )
+            return False
+
     def test_error_handling(self) -> bool:
         """Test error handling mechanisms"""
         print("⚠️ Testing Error Handling...")
@@ -716,6 +1032,8 @@ class IntegrationTestRunner:
             ("Bedrock API Call", self.test_bedrock_api_call),
             ("BedrockLLM Class", self.test_bedrock_llm_class),
             ("RAG Functionality", self.test_rag_functionality),
+            ("Enhanced RAG Functionality", self.test_enhanced_rag_functionality),
+            ("Chat Engine Integration", self.test_chat_engine_integration),
             ("Error Handling", self.test_error_handling),
             ("Performance Metrics", self.test_performance_metrics)
         ]

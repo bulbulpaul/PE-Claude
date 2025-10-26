@@ -13,7 +13,8 @@
 # from core.model_zoo.pann_dab_vars import *
 from core.gui.gui import build_gui, init_states, display_history
 from core.gui.design_stages import design_flow, task_agent
-from core.llm.llm import bedrock_init, rag_load
+from core.llm.llm import bedrock_init, rag_load, enhanced_rag_load
+from core.knowledge.kb_config import KnowledgeBaseConfig
 
 
 
@@ -29,6 +30,21 @@ if __name__ == "__main__":
     # Initialize Bedrock client using BedrockConfig defaults
     client = bedrock_init()
     build_gui()
+    
+    # Initialize KnowledgeBase configuration from environment variables
+    import streamlit as st
+    from core.knowledge.kb_config import load_config_from_env
+    import os
+    
+    # Debug: Show if BEDROCK_KB_ID is set
+    kb_id_set = bool(os.getenv('BEDROCK_KB_ID'))
+    st.info(f"環境変数 BEDROCK_KB_ID: {'設定済み' if kb_id_set else '未設定'}")
+    
+    kb_config = load_config_from_env()
+    if kb_config:
+        st.success(f"✅ KnowledgeBase設定を読み込みました: {kb_config.mode}モード (ID: {kb_config.knowledge_base_id[:10]}...)")
+    else:
+        st.info("ℹ️ KnowledgeBase設定が見つかりません。ローカルモードで動作します。")
         
     
     # Use Retrieval Augmented Generation (RAG) to embed customized knowledge base
@@ -36,16 +52,18 @@ if __name__ == "__main__":
     # AGENT 0 to provide insights and PE-specific reasoning for the selected modulations
     with open('core/knowledge/prompts/prompt.txt', 'r') as file:
         system_prompt = file.read()
-    index0 = rag_load("core/knowledge/kb/database", temperature=temperature, 
-                       chunk_size=chunk_size, system_prompt=system_prompt, use_bedrock=True)
+    index0 = enhanced_rag_load("core/knowledge/kb/database", knowledge_base_config=kb_config,
+                               temperature=temperature, chunk_size=chunk_size, 
+                               system_prompt=system_prompt, use_bedrock=True)
     chat_engine0 = index0.as_chat_engine(chat_mode="context",similarity_top_k=top_k)
     # AGENT 1 specialized in modulation recommendation
-    index1 = rag_load("core/knowledge/kb/database1", temperature=temperature, 
-                       chunk_size=chunk_size, system_prompt=system_prompt, use_bedrock=True)
+    index1 = enhanced_rag_load("core/knowledge/kb/database1", knowledge_base_config=kb_config,
+                               temperature=temperature, chunk_size=chunk_size, 
+                               system_prompt=system_prompt, use_bedrock=True)
     chat_engine1 = index1.as_chat_engine(similarity_top_k=top_k)
     # AGENT 2 for self introduction
-    index2 = rag_load("core/knowledge/kb/introduction", temperature=temperature, 
-                       chunk_size=chunk_size, use_bedrock=True)
+    index2 = enhanced_rag_load("core/knowledge/kb/introduction", knowledge_base_config=kb_config,
+                               temperature=temperature, chunk_size=chunk_size, use_bedrock=True)
     chat_engine2 = index2.as_chat_engine(chat_mode="context",similarity_top_k=top_k)
     
     

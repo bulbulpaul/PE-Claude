@@ -1,0 +1,13 @@
+{
+  "overall_success": false,
+  "total_tests": 7,
+  "passed_tests": 4,
+  "failed_tests": 3,
+  "success_rate": 57.14285714285714,
+  "failures": [
+    "test_main_application_bedrock_only_error_handling (__main__.MainApplicationIntegrationTest.test_main_application_bedrock_only_error_handling)",
+    "test_main_application_hybrid_mode_fallback (__main__.MainApplicationIntegrationTest.test_main_application_hybrid_mode_fallback)",
+    "test_main_application_multiple_modes (__main__.MainApplicationIntegrationTest.test_main_application_multiple_modes)"
+  ],
+  "errors": []
+}

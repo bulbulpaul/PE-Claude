@@ -55,6 +55,7 @@ https://github.com/user-attachments/assets/2e8ff52e-e2e1-41b5-9825-b0e65e2615c1
 * To deploy PE-GPT on your PC, the first step is to setup your API call to OpenAI models, please see core/llm/llm.py for more details. <br>
 * If you want to interact with Plecs software to simulate the designed modulation for DAB, you need to enable the xml-rpc interface in Plecs settings,
 and to add the directory "core/simulation/devices" in the device library searching path in plecs.
+* **NEW**: PE-GPT now supports Amazon Bedrock KnowledgeBase integration for enhanced document retrieval. See [KNOWLEDGE_BASE_SETUP.md](KNOWLEDGE_BASE_SETUP.md) for detailed setup instructions.
 <br><br>
 ```bash
 

@@ -446,6 +446,302 @@ def rag_load(database_folder, llm_model=None,
         return index
 
 
+@st.cache_resource(show_spinner=False)
+def enhanced_rag_load(
+    database_folder: str = None,
+    knowledge_base_config=None,
+    llm_model: str = None,
+    temperature: float = None,
+    chunk_size: int = None,
+    system_prompt: str = None,
+    use_bedrock: bool = True
+):
+    """
+    Enhanced RAG function with Bedrock KnowledgeBase integration support.
+    
+    This function extends the original rag_load function to support:
+    - Local file-based document indexing (original functionality)
+    - Amazon Bedrock KnowledgeBase integration
+    - Hybrid search combining both sources
+    - Backward compatibility with existing rag_load usage
+    
+    Args:
+        database_folder: Path to local documents folder (optional if using bedrock-only mode)
+        knowledge_base_config: KnowledgeBaseConfig instance for Bedrock integration (optional)
+        llm_model: Optional Bedrock model ID (uses BedrockConfig default if None)
+        temperature: Model temperature (default: 0.0)
+        chunk_size: Document chunk size for local files (default: 1024)
+        system_prompt: System prompt for the model
+        use_bedrock: Whether to use Bedrock (always True, kept for compatibility)
+    
+    Returns:
+        VectorStoreIndex: Enhanced index supporting hybrid search or local-only search
+    """
+    from core.knowledge.kb_config import KnowledgeBaseConfig
+    from core.llm.hybrid_retriever import HybridRetriever
+    from core.llm.error_handler import get_error_handler, handle_error, format_error_for_user
+    
+    # Set defaults
+    if chunk_size is None: 
+        chunk_size = 1024
+    if temperature is None: 
+        temperature = 0.0
+    
+    # Determine search mode based on provided parameters
+    has_local = database_folder is not None
+    has_bedrock = knowledge_base_config is not None and knowledge_base_config.is_bedrock_enabled()
+    
+    # Validate that at least one source is available
+    if not has_local and not has_bedrock:
+        raise ValueError("少なくともローカルフォルダまたはKnowledgeBase設定のいずれかが必要です")
+    
+    # Determine effective mode
+    if has_local and has_bedrock:
+        effective_mode = knowledge_base_config.mode if knowledge_base_config.mode in ["local", "bedrock", "hybrid"] else "hybrid"
+    elif has_local:
+        effective_mode = "local"
+    else:
+        effective_mode = "bedrock"
+    
+    with st.spinner(text=f"Enhanced RAG初期化中 (モード: {effective_mode}) – しばらくお待ちください..."):
+        
+        # Initialize LLM
+        llm_kwargs = {
+            'temperature': temperature,
+            'system_prompt': system_prompt
+        }
+        if llm_model is not None:
+            llm_kwargs['model_id'] = llm_model
+            
+        llm = BedrockLLM(**llm_kwargs)
+        
+        # Set up embedding model
+        from llama_index.core.settings import Settings
+        from llama_index.embeddings.bedrock import BedrockEmbedding
+        
+        config = BedrockConfig()
+        embed_model = BedrockEmbedding(
+            model_name=config.bedrock_embedding_model_id,
+            region_name=llm.region
+        )
+        
+        Settings.llm = llm
+        Settings.embed_model = embed_model
+        
+        # Initialize local retriever if needed
+        local_retriever = None
+        if has_local and effective_mode in ["local", "hybrid"]:
+            try:
+                st.info("ローカルファイルをインデックス化中...")
+                docs = SimpleDirectoryReader(database_folder).load_data()
+                node_parser = SimpleNodeParser.from_defaults(chunk_size=chunk_size)
+                nodes = node_parser.get_nodes_from_documents(docs)
+                
+                local_index = VectorStoreIndex(nodes)
+                local_retriever = local_index.as_retriever(
+                    similarity_top_k=knowledge_base_config.similarity_top_k if knowledge_base_config else 5
+                )
+                st.success(f"ローカルファイル {len(docs)} 件をインデックス化完了")
+                
+            except Exception as e:
+                # Use enhanced error handler
+                error_handler = get_error_handler()
+                error_info = error_handler.handle_error(e, "Local file indexing")
+                
+                # Display user-friendly error message
+                user_message = error_handler.format_user_message(error_info, include_actions=True)
+                st.error(user_message)
+                
+                if effective_mode == "local":
+                    raise
+                # For hybrid mode, continue without local
+                st.warning("ハイブリッドモードでローカル検索を無効化し、Bedrockのみで続行します")
+                effective_mode = "bedrock"
+        
+        # Create hybrid retriever or return local-only index
+        if effective_mode == "local":
+            # Return traditional VectorStoreIndex for backward compatibility
+            return local_index
+        
+        elif effective_mode in ["bedrock", "hybrid"]:
+            # Create hybrid retriever with appropriate configuration
+            try:
+                hybrid_retriever = HybridRetriever(
+                    local_retriever=local_retriever,
+                    config=knowledge_base_config,
+                    mode=effective_mode
+                )
+                
+                # Create a custom index that uses the hybrid retriever
+                enhanced_index = EnhancedVectorStoreIndex(
+                    hybrid_retriever=hybrid_retriever,
+                    local_index=local_index if local_retriever else None
+                )
+                
+                st.success(f"Enhanced RAG初期化完了 (モード: {effective_mode})")
+                return enhanced_index
+                
+            except Exception as e:
+                # Use enhanced error handler
+                error_handler = get_error_handler()
+                error_info = error_handler.handle_error(e, "Enhanced RAG initialization")
+                
+                # Display user-friendly error message
+                user_message = error_handler.format_user_message(error_info, include_actions=True)
+                st.error(user_message)
+                
+                # Fallback logic
+                if knowledge_base_config and knowledge_base_config.enable_fallback and local_retriever:
+                    st.warning("Bedrock初期化に失敗しました。ローカルモードにフォールバックします")
+                    return local_index
+                else:
+                    raise
+        
+        else:
+            raise ValueError(f"サポートされていないモード: {effective_mode}")
+
+
+class EnhancedVectorStoreIndex:
+    """
+    Enhanced VectorStoreIndex that supports hybrid retrieval.
+    
+    This class provides backward compatibility with the original VectorStoreIndex
+    while adding support for hybrid search capabilities.
+    """
+    
+    def __init__(self, hybrid_retriever: 'HybridRetriever', local_index=None):
+        """
+        Initialize enhanced index.
+        
+        Args:
+            hybrid_retriever: HybridRetriever instance
+            local_index: Original VectorStoreIndex for fallback (optional)
+        """
+        self.hybrid_retriever = hybrid_retriever
+        self.local_index = local_index
+        self._retriever = None
+    
+    def as_retriever(self, **kwargs):
+        """
+        Create retriever interface compatible with llama_index.
+        
+        Args:
+            **kwargs: Additional retriever parameters
+            
+        Returns:
+            BaseRetriever: Retriever instance
+        """
+        # Update hybrid retriever configuration if parameters provided
+        if 'similarity_top_k' in kwargs and hasattr(self.hybrid_retriever, 'config'):
+            if self.hybrid_retriever.config:
+                self.hybrid_retriever.config.similarity_top_k = kwargs['similarity_top_k']
+        
+        return self.hybrid_retriever
+    
+    def as_query_engine(self, **kwargs):
+        """
+        Create query engine interface compatible with llama_index.
+        
+        Args:
+            **kwargs: Additional query engine parameters
+            
+        Returns:
+            BaseQueryEngine: Query engine instance
+        """
+        from llama_index.core.query_engine import RetrieverQueryEngine
+        
+        retriever = self.as_retriever(**kwargs)
+        return RetrieverQueryEngine.from_args(retriever=retriever, **kwargs)
+    
+    def as_chat_engine(self, **kwargs):
+        """
+        Create chat engine interface compatible with llama_index.
+        
+        Args:
+            **kwargs: Additional chat engine parameters
+            
+        Returns:
+            BaseChatEngine: Chat engine instance
+        """
+        from llama_index.core.chat_engine import CondensePlusContextChatEngine
+        
+        retriever = self.as_retriever(**kwargs)
+        return CondensePlusContextChatEngine.from_defaults(
+            retriever=retriever,
+            **kwargs
+        )
+    
+    def get_nodes(self, node_ids=None):
+        """
+        Get nodes from the index (backward compatibility).
+        
+        Args:
+            node_ids: Optional list of node IDs
+            
+        Returns:
+            List: List of nodes
+        """
+        if self.local_index and hasattr(self.local_index, 'get_nodes'):
+            return self.local_index.get_nodes(node_ids)
+        return []
+    
+    def insert_nodes(self, nodes):
+        """
+        Insert nodes into the index (backward compatibility).
+        
+        Args:
+            nodes: List of nodes to insert
+        """
+        # For hybrid mode, node insertion is not supported
+        if hasattr(self, 'hybrid_retriever') and self.hybrid_retriever:
+            raise NotImplementedError("Node insertion not supported in hybrid mode")
+        
+        if self.local_index and hasattr(self.local_index, 'insert_nodes'):
+            return self.local_index.insert_nodes(nodes)
+        raise NotImplementedError("Node insertion not supported")
+    
+    def delete_nodes(self, node_ids):
+        """
+        Delete nodes from the index (backward compatibility).
+        
+        Args:
+            node_ids: List of node IDs to delete
+        """
+        # For hybrid mode, node deletion is not supported
+        if hasattr(self, 'hybrid_retriever') and self.hybrid_retriever:
+            raise NotImplementedError("Node deletion not supported in hybrid mode")
+        
+        if self.local_index and hasattr(self.local_index, 'delete_nodes'):
+            return self.local_index.delete_nodes(node_ids)
+        raise NotImplementedError("Node deletion not supported")
+    
+    def get_retriever_info(self):
+        """
+        Get information about the configured retrievers.
+        
+        Returns:
+            Dict: Retriever information
+        """
+        if hasattr(self.hybrid_retriever, 'get_retriever_info'):
+            return self.hybrid_retriever.get_retriever_info()
+        return {"type": "enhanced", "mode": "unknown"}
+    
+    # Backward compatibility methods
+    def __getattr__(self, name):
+        """
+        Delegate unknown attributes to local_index for backward compatibility.
+        
+        Args:
+            name: Attribute name
+            
+        Returns:
+            Any: Attribute value from local_index
+        """
+        if self.local_index and hasattr(self.local_index, name):
+            return getattr(self.local_index, name)
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
+
 def get_msg_history():
     """
         get the message history 
