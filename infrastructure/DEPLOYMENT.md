@@ -1,322 +1,261 @@
-# PE-GPT ECS Deployment Guide
+# PE-GPT ECS デプロイメントガイド
 
-このドキュメントは、PE-GPTアプリケーションのAmazon ECS環境へのデプロイメント手順を説明します。
+## 概要
+
+このドキュメントでは、PE-GPTアプリケーションをAmazon ECS Fargateにデプロイする手順を説明します。
 
 ## 前提条件
 
 ### 必要なツール
+- AWS CLI (v2.0以上)
+- Docker
+- Node.js (v18以上)
+- npm
 
-- [AWS CLI](https://aws.amazon.com/cli/) v2.0以上
-- [Docker](https://www.docker.com/) v20.0以上
-- [Node.js](https://nodejs.org/) v18以上
-- [npm](https://www.npmjs.com/) v8以上
-- [Git](https://git-scm.com/) v2.0以上
-
-### AWS認証情報
-
-以下のいずれかの方法でAWS認証情報を設定してください：
-
+### AWS設定
 ```bash
-# AWS CLIで設定
+# AWS認証情報の設定
 aws configure
 
-# または環境変数で設定
-export AWS_ACCESS_KEY_ID=your-access-key
-export AWS_SECRET_ACCESS_KEY=your-secret-key
+# 必要な権限
+# - ECS、ECR、VPC、ALB、IAM、CloudFormation の管理権限
+```
+
+## デプロイメント手順
+
+### 1. 環境変数の設定
+
+#### 基本環境変数
+```bash
+# 必須環境変数
 export AWS_DEFAULT_REGION=us-east-1
+export BEDROCK_KB_ID=your-knowledge-base-id
 
-# またはAWSプロファイルを使用
-export AWS_PROFILE=your-profile
+# オプション環境変数
+export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 ```
 
-### 必要なAWS権限
-
-デプロイに必要な最小権限：
-
-- CloudFormation: フルアクセス
-- ECS: フルアクセス
-- ECR: フルアクセス
-- EC2: VPC、セキュリティグループ、ロードバランサー関連
-- IAM: ロール作成・管理
-- Logs: CloudWatch Logs管理
-- SSM: Parameter Store管理
-
-## クイックスタート
-
-### 1. 環境変数とシークレットの設定
-
+#### HTTPS対応環境（staging/production）の追加設定
 ```bash
-# 開発環境の設定
-./infrastructure/scripts/manage-env.sh set-env development
+# 証明書ARN（必須）
+export CERTIFICATE_ARN=arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012
 
-# 本番環境の設定
-./infrastructure/scripts/manage-env.sh set-env production
+# カスタムドメイン設定（オプション）
+export DOMAIN_NAME=your-custom-domain.com
+
+# Cognito認証URL設定（オプション）
+export CALLBACK_URLS=https://your-domain.com/oauth2/idpresponse
+export LOGOUT_URLS=https://your-domain.com/
+
+# 複数URL指定の場合（カンマ区切り）
+export CALLBACK_URLS=https://domain1.com/oauth2/idpresponse,https://domain2.com/oauth2/idpresponse
+export LOGOUT_URLS=https://domain1.com/,https://domain2.com/
 ```
 
-### 2. 完全デプロイ（推奨）
-
+#### 環境変数設定支援スクリプト
+対話的に環境変数を設定するためのスクリプトを使用できます：
 ```bash
-# 開発環境へのデプロイ
-./infrastructure/scripts/deploy-with-env.sh -e development
-
-# 本番環境へのデプロイ
-./infrastructure/scripts/deploy-with-env.sh -e production --force-deploy
+./scripts/set-env-vars.sh
 ```
 
-## 詳細なデプロイ手順
-
-### Step 1: リポジトリのクローン
-
-```bash
-git clone <repository-url>
-cd pe-gpt
-```
-
-### Step 2: 環境設定
-
-#### 開発環境
-
-```bash
-# 環境変数の設定
-./infrastructure/scripts/manage-env.sh set-env development
-
-# 必要なシークレットの設定
-./infrastructure/scripts/manage-env.sh set-secret bedrock-kb-id "YOUR_KB_ID" -e development --encrypt
-
-# 設定の確認
-./infrastructure/scripts/manage-env.sh validate-env development
-```
-
-#### 本番環境
-
-```bash
-# 環境変数の設定
-./infrastructure/scripts/manage-env.sh set-env production
-
-# 必要なシークレットの設定
-./infrastructure/scripts/manage-env.sh set-secret bedrock-kb-id "YOUR_KB_ID" -e production --encrypt
-
-# 設定の確認
-./infrastructure/scripts/manage-env.sh validate-env production
-```
-
-### Step 3: Dockerイメージのビルドとプッシュ
-
-```bash
-# ECRリポジトリへのイメージプッシュ
-./infrastructure/scripts/build-and-push.sh --region us-east-1 --latest
-```
-
-### Step 4: CDKインフラストラクチャのデプロイ
+### 2. CDKブートストラップ（初回のみ）
 
 ```bash
 cd infrastructure
-
-# 依存関係のインストール
 npm install
-
-# CDKブートストラップ（初回のみ）
 npx cdk bootstrap
-
-# デプロイ
-npx cdk deploy --require-approval never \
-  --context environment=development \
-  --context imageTag=latest \
-  --context bedrockKbId=YOUR_KB_ID
 ```
 
-## 環境別設定
+### 3. Dockerイメージのビルドとプッシュ
 
-### 開発環境 (development)
+```bash
+# ECRリポジトリの作成（CDKデプロイ前に必要な場合）
+aws ecr create-repository --repository-name pe-gpt --region $AWS_DEFAULT_REGION
 
-- **CPU**: 1024 (1 vCPU)
-- **Memory**: 2048 MB
-- **Desired Count**: 1
-- **HTTPS**: 無効
-- **Image Retention**: 10個
-
-### 本番環境 (production)
-
-- **CPU**: 2048 (2 vCPU)
-- **Memory**: 4096 MB
-- **Desired Count**: 2
-- **HTTPS**: 有効（証明書ARNが必要）
-- **Image Retention**: 20個
-
-## CI/CD パイプライン
-
-### GitHub Actions
-
-`.github/workflows/deploy.yml` ファイルが自動デプロイを設定します。
-
-#### 必要なシークレット
-
-GitHub リポジトリの Settings > Secrets で以下を設定：
-
-```
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_ACCOUNT_ID=123456789012
-BEDROCK_KB_ID=your-knowledge-base-id
+# イメージのビルドとプッシュ
+./scripts/build-and-push.sh latest
 ```
 
-#### トリガー
+### 4. CDKスタックのデプロイ
 
-- `main` ブランチへのプッシュ → 本番環境デプロイ
-- `develop` ブランチへのプッシュ → 開発環境デプロイ
-- 手動実行 → 指定環境デプロイ
+#### 開発環境
+```bash
+npm run deploy:dev
+```
 
-## 運用コマンド
+#### 本番環境
+```bash
+export BEDROCK_KB_ID=your-production-kb-id
+npm run deploy:prod
+```
+
+#### 手動デプロイ
+```bash
+# 差分確認
+npm run diff
+
+# デプロイ実行
+npm run deploy
+```
+
+#### 環境別デプロイスクリプト使用
+```bash
+# 開発環境（HTTPS無効）
+./scripts/deploy-with-env.sh -e development
+
+# ステージング環境（HTTPS有効）
+export CERTIFICATE_ARN=arn:aws:acm:us-east-1:account:certificate/cert-id
+./scripts/deploy-with-env.sh -e staging
+
+# 本番環境（HTTPS有効）
+export CERTIFICATE_ARN=arn:aws:acm:us-east-1:account:certificate/cert-id
+export DOMAIN_NAME=test.demo.pe.merrylab.jp
+./scripts/deploy-with-env.sh -e production
+
+# 強制デプロイ（確認プロンプトをスキップ）
+./scripts/deploy-with-env.sh -e production --force-deploy
+```
+
+### 5. デプロイメント検証
+
+```bash
+# 自動検証スクリプト
+./scripts/validate-deployment.sh development
+
+# 手動確認
+aws ecs describe-services --cluster pe-gpt-cluster --services pe-gpt-service
+```
+
+## 設定パラメータ
+
+### 環境設定ファイル
+`config/environments.ts` で環境別の設定を管理：
+
+```typescript
+{
+  region: 'us-east-1',
+  bedrockKnowledgeBaseId: 'your-kb-id',
+  ecsConfig: {
+    cpu: 1024,        // CPU単位 (1024 = 1 vCPU)
+    memory: 2048,     // メモリ (MB)
+    desiredCount: 1   // 実行タスク数
+  }
+}
+```
+
+### リソース制限
+- **開発環境**: 1 vCPU, 2GB RAM, 1タスク
+- **本番環境**: 2 vCPU, 4GB RAM, 2タスク
+
+## 運用手順
+
+### アプリケーションの更新
+
+1. 新しいDockerイメージをビルド・プッシュ
+```bash
+./scripts/build-and-push.sh v1.2.0
+```
+
+2. ECSサービスの更新
+```bash
+aws ecs update-service --cluster pe-gpt-cluster --service pe-gpt-service --force-new-deployment
+```
 
 ### ログの確認
 
 ```bash
-# ECSタスクのログを確認
-aws logs tail /ecs/pe-gpt --follow --region us-east-1
+# CloudWatch Logsでログ確認
+aws logs tail /ecs/pe-gpt --follow
 
-# 特定の時間範囲のログ
-aws logs filter-log-events \
-  --log-group-name /ecs/pe-gpt \
-  --start-time 1640995200000 \
-  --region us-east-1
-```
-
-### サービスの状態確認
-
-```bash
-# ECSサービスの状態
-aws ecs describe-services \
-  --cluster pe-gpt-cluster \
-  --services pe-gpt-service \
-  --region us-east-1
-
-# タスクの状態
-aws ecs list-tasks \
-  --cluster pe-gpt-cluster \
-  --service-name pe-gpt-service \
-  --region us-east-1
+# 特定期間のログ
+aws logs filter-log-events --log-group-name /ecs/pe-gpt --start-time 1640995200000
 ```
 
 ### スケーリング
 
 ```bash
-# サービスのスケーリング
-aws ecs update-service \
-  --cluster pe-gpt-cluster \
-  --service pe-gpt-service \
-  --desired-count 3 \
-  --region us-east-1
-```
-
-### 新しいイメージのデプロイ
-
-```bash
-# 新しいイメージをビルド・プッシュ
-./infrastructure/scripts/build-and-push.sh --tag v1.2.3
-
-# サービスを更新（新しいタスク定義が必要な場合）
-npx cdk deploy --context imageTag=v1.2.3
+# タスク数の変更
+aws ecs update-service --cluster pe-gpt-cluster --service pe-gpt-service --desired-count 3
 ```
 
 ## トラブルシューティング
 
 ### よくある問題
 
-#### 1. ECRリポジトリが存在しない
-
+#### 1. タスクが起動しない
 ```bash
-# CDKでECRリポジトリを作成
-cd infrastructure
-npx cdk deploy --context environment=development
+# タスクの状態確認
+aws ecs describe-tasks --cluster pe-gpt-cluster --tasks $(aws ecs list-tasks --cluster pe-gpt-cluster --service-name pe-gpt-service --query 'taskArns[0]' --output text)
+
+# ログ確認
+aws logs tail /ecs/pe-gpt --follow
 ```
 
-#### 2. Parameter Storeにシークレットがない
+#### 2. ALBヘルスチェック失敗
+- Streamlitアプリケーションの起動時間を確認
+- セキュリティグループの設定を確認
+- ターゲットグループのヘルスチェック設定を確認
 
-```bash
-# シークレットを設定
-./infrastructure/scripts/manage-env.sh set-secret bedrock-kb-id "YOUR_KB_ID" -e development --encrypt
-```
-
-#### 3. タスクが起動しない
-
-```bash
-# タスクの詳細を確認
-aws ecs describe-tasks \
-  --cluster pe-gpt-cluster \
-  --tasks TASK_ARN \
-  --region us-east-1
-
-# ログを確認
-aws logs tail /ecs/pe-gpt --follow --region us-east-1
-```
-
-#### 4. ヘルスチェックが失敗する
-
-```bash
-# ALBターゲットグループの状態を確認
-aws elbv2 describe-target-health \
-  --target-group-arn TARGET_GROUP_ARN \
-  --region us-east-1
-```
+#### 3. Bedrock接続エラー
+- IAMロールの権限を確認
+- 環境変数 `BEDROCK_KB_ID` の設定を確認
+- リージョン設定を確認
 
 ### デバッグコマンド
 
 ```bash
-# CDKの差分確認
-cd infrastructure
-npx cdk diff
+# ECSサービスの詳細確認
+aws ecs describe-services --cluster pe-gpt-cluster --services pe-gpt-service
 
-# CloudFormationスタックの確認
-aws cloudformation describe-stacks \
-  --stack-name PeGptEcsStack \
-  --region us-east-1
+# タスク定義の確認
+aws ecs describe-task-definition --task-definition pe-gpt-task
 
-# セキュリティグループの確認
-aws ec2 describe-security-groups \
-  --filters "Name=group-name,Values=pe-gpt-*" \
-  --region us-east-1
+# ALBターゲットの健全性確認
+aws elbv2 describe-target-health --target-group-arn $(aws elbv2 describe-target-groups --names pe-gpt-tg --query 'TargetGroups[0].TargetGroupArn' --output text)
 ```
 
 ## セキュリティ考慮事項
 
 ### ネットワークセキュリティ
-
-- ECSタスクはプライベートサブネットに配置
+- ECSタスクはプライベートサブネットで実行
 - ALBのみがインターネットからアクセス可能
 - セキュリティグループで最小権限の原則を適用
 
-### シークレット管理
+### IAM権限
+- タスクロールはBedrock操作のみに制限
+- 実行ロールはECS操作とログ出力のみに制限
 
-- 機密情報はParameter Store（暗号化）で管理
-- IAMロールで最小権限のアクセス制御
-- 環境ごとに分離されたパラメータ
+### データ保護
+- CloudWatch Logsは7日間保持
+- ECRイメージは最新10個のみ保持
 
-### 監査とログ
+## コスト最適化
 
-- VPCフローログが有効
-- CloudWatch Logsでアプリケーションログを記録
-- CloudTrailでAPI呼び出しを監査
+### リソース使用量の監視
+```bash
+# ECSサービスのメトリクス確認
+aws cloudwatch get-metric-statistics --namespace AWS/ECS --metric-name CPUUtilization --dimensions Name=ServiceName,Value=pe-gpt-service Name=ClusterName,Value=pe-gpt-cluster --start-time 2023-01-01T00:00:00Z --end-time 2023-01-02T00:00:00Z --period 3600 --statistics Average
+```
 
-## パフォーマンス最適化
+### コスト削減のヒント
+- 開発環境では必要時のみタスクを実行
+- 本番環境でもトラフィックに応じてスケーリング
+- 不要なログの保持期間を短縮
 
-### リソース設定
+## 削除手順
 
-- 環境に応じたCPU/メモリ設定
-- オートスケーリングの設定
-- ヘルスチェック間隔の最適化
+```bash
+# スタックの削除
+npm run destroy
 
-### コスト最適化
-
-- 開発環境では最小リソース
-- ECRライフサイクルポリシーで古いイメージを削除
-- 不要な環境の定期的な削除
+# ECRイメージの削除（必要に応じて）
+aws ecr delete-repository --repository-name pe-gpt --force
+```
 
 ## サポート
 
-問題が発生した場合は、以下の情報を含めてサポートに連絡してください：
-
-1. エラーメッセージ
-2. 実行したコマンド
-3. 環境情報（development/production）
-4. CloudFormationスタックの状態
-5. ECSタスクのログ
+問題が発生した場合は、以下の情報を収集してください：
+- CloudFormationスタックのイベント
+- ECSサービスとタスクの状態
+- CloudWatch Logs
+- ALBのアクセスログ
