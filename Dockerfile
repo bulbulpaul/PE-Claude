@@ -26,22 +26,27 @@ WORKDIR /app
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y \
     curl \
+    bash \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Copy Python packages from builder stage
-COPY --from=builder /root/.local /root/.local
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash app
 
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
+# Copy Python packages from builder stage to app user home
+COPY --from=builder /root/.local /home/app/.local
 
 # Copy application code
 COPY . .
 
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash app \
-    && chown -R app:app /app
+# Change ownership to app user
+RUN chown -R app:app /app && chown -R app:app /home/app/.local
+
+# Switch to app user
 USER app
+
+# Make sure scripts in .local are usable
+ENV PATH=/home/app/.local/bin:$PATH
 
 # Set environment variables for Streamlit
 ENV STREAMLIT_SERVER_HEADLESS=true
