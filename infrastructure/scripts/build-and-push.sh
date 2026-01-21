@@ -25,7 +25,7 @@ aws ecr get-login-password --region ${REGION} | docker login --username AWS --pa
 
 # Dockerイメージをビルド（x86_64アーキテクチャ用）
 echo "Building Docker image for x86_64 architecture..."
-docker build --platform linux/amd64 -t ${REPOSITORY_NAME}:${IMAGE_TAG} -f ../Dockerfile ..
+docker build --platform linux/amd64 -t ${REPOSITORY_NAME}:${IMAGE_TAG} -f ../../Dockerfile ../..
 
 # イメージにECRタグを付与
 docker tag ${REPOSITORY_NAME}:${IMAGE_TAG} ${ECR_URI}:${IMAGE_TAG}

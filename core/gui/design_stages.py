@@ -216,10 +216,10 @@ def train_pann():
 def evaluate_pfc_():
     """
         Main purpose: Evaluate PFC converter performance using PANN model and optimization for power factor correction applications
-        Usage: Apply when user specifies PFC converter operating conditions, power levels, or asks about power factor/THD performance
-        Keywords to watch: PFC, power factor correction, power factor, THD, total harmonic distortion, AC-DC, boost PFC, CCM, DCM, BCM, harmonic, 力率, 力率改善
-        Pay attention: If the user mentions PFC, power factor correction, THD optimization, AC-DC conversion, or harmonic distortion, this function should be called!!!
-        Note: This is specifically for PFC converter performance evaluation, not for PANN model training (use Task 7 for that)
+        Usage: Apply when user asks about PFC converter design, specifies operating conditions, power levels, or asks about power factor/THD performance
+        Keywords to watch: PFC, PFCコンバーター, PFC converter, power factor correction, power factor, THD, total harmonic distortion, AC-DC, AC-DC変換, boost PFC, CCM, DCM, BCM, harmonic, 力率, 力率改善, 力率補正, 高調波, 歪み率, 交流直流変換
+        Pay attention: If the user mentions PFC, PFCコンバーター, power factor correction, 力率改善, THD optimization, AC-DC conversion, or harmonic distortion, this function should be called!!!
+        Note: This is specifically for PFC converter performance evaluation and design, not for PANN model training (use Task 7 for that)
     """
     return "Task 6"  # PFC evaluation task indicator
 
@@ -560,9 +560,15 @@ def other_tasks(client):
         # Prepare messages for Bedrock
         messages = [
             {"role": "system", "content": """You are now an expert in the power electronics industry, 
-                                         and you are proficient in optimal design of buck converter. Please answer the questions 
-                                         in a warm, positive and friendly manner. Keep your answer less than 150 words! Make sure 
-                                         your answers are professional and accurate -- don't hallucinate."""},
+                                         and you are proficient in multiple converter topologies including:
+                                         - Dual Active Bridge (DAB) converters
+                                         - Power Factor Correction (PFC) converters
+                                         - Buck converters
+                                         - Other DC-DC and AC-DC converter topologies
+                                         
+                                         Please answer the questions in a warm, positive and friendly manner. 
+                                         Keep your answer less than 150 words! Make sure your answers are 
+                                         professional and accurate -- don't hallucinate."""},
             *[{"role": msg["role"], "content": msg["content"]} 
               for msg in st.session_state.messages] # provide all historical chat messages
         ]
@@ -605,7 +611,7 @@ def custom_tasks():
 
 def design_flow(agents, general_client, FlexRes=True):
     """
-        This is your customized design workflow
+        This is your customized design workflow with automatic topology detection
     """
     
     chat_engine0, chat_engine1, chat_engine2, agent_intent = agents
@@ -620,18 +626,41 @@ def design_flow(agents, general_client, FlexRes=True):
         messages_history = get_msg_history()
         # messages_history = [] # if no historical messages are used
         
+        # Automatic topology detection
+        from ..topology.topology_detector import get_topology_detector
+        detector = get_topology_detector()
+        detected_topology, confidence, detection_details = detector.detect(prompt)
+        
+        # Display detection result if confidence is high
+        if confidence > 0.5:
+            topology_info = detector.get_topology_info(detected_topology)
+            st.info(f"🔍 検出されたトポロジー: {topology_info['japanese_name']} ({topology_info['full_name']}) - 信頼度: {confidence:.1%}")
         
         # The LLM agents are responsible for the following defined design tasks
         with st.chat_message("assistant"):
             
+            # Prepare enhanced prompt with topology detection
+            topology_hint = ""
+            if confidence > 0.5:
+                if detected_topology == 'PFC':
+                    topology_hint = "\n\nDetected Topology: PFC Converter - Use Task 6 (evaluate_pfc) or Task 7 (build_pfc_pann)"
+                elif detected_topology == 'Buck':
+                    topology_hint = "\n\nDetected Topology: Buck Converter - Use Task 8 (design_buck_converter)"
+                elif detected_topology == 'DAB':
+                    topology_hint = "\n\nDetected Topology: DAB Converter - Use Task 0-5 (DAB design tasks)"
+            
             response = agent_intent.chat(f"""Please call the corresponding function based on the user's Request given in square brackets '[]'.
                                          Listen Carefully!! Only ONE function that best matches the function descriptions should be called!!!!
                                          
-                                         Important Guidelines:
-                                         - For DAB/Dual Active Bridge converters: Use Task 0-5
-                                         - For PFC/Power Factor Correction converters: Use Task 6-7
-                                         - For Buck/Step-down converters: Use Task 8
-                                         - Match keywords in the request with function descriptions
+                                         Important Guidelines for Topology Detection:
+                                         - For DAB/Dual Active Bridge/デュアルアクティブブリッジ converters: Use Task 0-5
+                                         - For PFC/Power Factor Correction/力率改善/PFCコンバーター converters: Use Task 6-7
+                                         - For Buck/Step-down/降圧/バックコンバーター converters: Use Task 8
+                                         - Match keywords in BOTH English and Japanese (日本語)
+                                         - If user asks about "PFC", "PFCコンバーター", "力率", "力率改善", "AC-DC", use Task 6 or 7
+                                         - If user asks about "Buck", "バック", "降圧", "step-down", use Task 8
+                                         - If user asks about "DAB", "デュアルアクティブブリッジ", "双方向", use Task 0-5
+                                         {topology_hint}
                                          
                                          User's Request: [{prompt}]""".replace('\n', ''))
                                          # +"\n\nThe detailed function descriptions are defined below."

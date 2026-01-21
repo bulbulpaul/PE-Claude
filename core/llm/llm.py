@@ -37,7 +37,7 @@ class BedrockConfig:
     DEFAULT_REGION = "us-east-1"
     DEFAULT_MODEL_ID = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
     DEFAULT_EMBEDDING_MODEL_ID = "amazon.titan-embed-text-v2:0"
-    DEFAULT_MAX_TOKENS = 1000
+    DEFAULT_MAX_TOKENS = 5000
     DEFAULT_TEMPERATURE = 0.0
     
     # Available Claude models (verified with AWS Bedrock)
