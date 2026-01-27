@@ -1,0 +1,9 @@
+{
+  "name": "cognito-auth-edge",
+  "version": "1.0.0",
+  "description": "Lambda@Edge function for Cognito authentication",
+  "main": "index.js",
+  "dependencies": {
+    "aws-jwt-verify": "^4.0.0"
+  }
+}
