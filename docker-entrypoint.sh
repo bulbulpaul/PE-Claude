@@ -18,6 +18,9 @@ if [ -z "$BEDROCK_KB_ID" ]; then
     log "WARNING: BEDROCK_KB_ID not set. Application may not function properly."
 fi
 
+# Set PySwarms logging configuration for CloudWatch
+export LOG_CFG="/app/config/pyswarms_logging.yaml"
+
 # Set Streamlit configuration
 export STREAMLIT_SERVER_HEADLESS=${STREAMLIT_SERVER_HEADLESS:-true}
 export STREAMLIT_SERVER_PORT=${STREAMLIT_SERVER_PORT:-8501}
