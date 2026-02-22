@@ -164,9 +164,9 @@ if [[ "${SKIP_IMAGE_BUILD}" != "true" ]]; then
   echo "Logging in to ECR..."
   aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
   
-  # Docker イメージのビルド
-  echo "Building Docker image..."
-  docker build -t pe-gpt:latest .
+  # Docker イメージのビルド（Fargate用 ARM64アーキテクチャ - Graviton）
+  echo "Building Docker image for linux/arm64..."
+  docker build --platform linux/arm64 -t pe-gpt:latest .
   
   # タグ付けとプッシュ
   echo "Tagging and pushing image..."

@@ -23,9 +23,9 @@ echo "Tag: ${IMAGE_TAG}"
 echo "Logging in to ECR..."
 aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ECR_URI}
 
-# Dockerイメージをビルド（x86_64アーキテクチャ用）
-echo "Building Docker image for x86_64 architecture..."
-docker build --platform linux/amd64 -t ${REPOSITORY_NAME}:${IMAGE_TAG} -f ../../Dockerfile ../..
+# Dockerイメージをビルド（ARM64アーキテクチャ用 - Graviton）
+echo "Building Docker image for ARM64 architecture..."
+docker build --platform linux/arm64 -t ${REPOSITORY_NAME}:${IMAGE_TAG} -f ../../Dockerfile ../..
 
 # イメージにECRタグを付与
 docker tag ${REPOSITORY_NAME}:${IMAGE_TAG} ${ECR_URI}:${IMAGE_TAG}

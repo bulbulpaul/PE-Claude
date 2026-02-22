@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      platform: linux/arm64
+    platform: linux/arm64
     image: pe-gpt:latest
     container_name: pe-gpt-app
     ports:

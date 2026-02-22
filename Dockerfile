@@ -1,7 +1,7 @@
 # PE-GPT Application Dockerfile
 # Multi-stage build for optimized container size
 
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Set working directory
 WORKDIR /app
@@ -33,14 +33,15 @@ RUN apt-get update && apt-get install -y \
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash app
 
-# Copy Python packages from builder stage to app user home
-COPY --from=builder /root/.local /home/app/.local
+# Copy Python packages from builder stage with correct ownership
+COPY --from=builder --chown=app:app /root/.local /home/app/.local
 
-# Copy application code
-COPY . .
+# Copy entrypoint script with correct ownership
+COPY --chown=app:app docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh
 
-# Change ownership to app user
-RUN chown -R app:app /app && chown -R app:app /home/app/.local
+# Copy application code with correct ownership
+COPY --chown=app:app . .
 
 # Switch to app user
 USER app
@@ -62,9 +63,5 @@ EXPOSE 8501
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8501/_stcore/health || exit 1
 
-# Copy and set executable permissions for startup script
-COPY --chown=app:app docker-entrypoint.sh /app/
-RUN chmod +x /app/docker-entrypoint.sh
-
 # Use startup script as entrypoint
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "/app/docker-entrypoint.sh"]

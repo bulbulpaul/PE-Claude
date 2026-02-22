@@ -20,6 +20,7 @@ build_image() {
     log "Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
     
     docker build \
+        --platform linux/arm64 \
         -t "${IMAGE_NAME}:${IMAGE_TAG}" \
         -f "${DOCKERFILE}" \
         .
