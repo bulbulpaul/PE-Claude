@@ -527,7 +527,7 @@ def design_buck_converter(chat_engine, prompt, messages_history):
                 client=client,
                 messages=messages_for_bedrock,
                 model_id=st.session_state.get("bedrock_model", config.bedrock_model_id),
-                max_tokens=1500,
+                max_tokens=config.max_tokens,
                 temperature=0.1
             )
             
@@ -582,7 +582,7 @@ def other_tasks(client):
             client=client,
             messages=messages,
             model_id=st.session_state.get("bedrock_model", config.bedrock_model_id),
-            max_tokens=1000,
+            max_tokens=config.max_tokens,
             temperature=0.1
         )
         

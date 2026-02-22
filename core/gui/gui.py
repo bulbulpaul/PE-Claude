@@ -14,8 +14,28 @@
 import streamlit as st
 import numpy as np
 import re
+import os
+
+# Debug mode: set DEBUG_MODE=true for local development to show debug messages
+DEBUG_MODE = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
 
 
+def debug_info(message: str):
+    """Display info message only in debug mode"""
+    if DEBUG_MODE:
+        st.info(message)
+
+
+def debug_success(message: str):
+    """Display success message only in debug mode"""
+    if DEBUG_MODE:
+        st.success(message)
+
+
+def debug_warning(message: str):
+    """Display warning message only in debug mode"""
+    if DEBUG_MODE:
+        st.warning(message)
 
 
 def build_gui():
@@ -30,7 +50,7 @@ def build_gui():
     # Initialize KnowledgeBase settings
     init_kb_settings()
     st.title("Chat with the Power electronic robot🤖")
-    st.info( "Hello, I am a robot specifically for power electronics design!", icon="🤟")
+    st.info("🤟こんにちは！パワーエレクトロニクス設計専用のAIアシスタントです！")
     
     with st.sidebar:
         st.markdown("<h1 style='color: #FF5733;'>PE-GPT (v2.0)</h1>", unsafe_allow_html=True)
@@ -41,33 +61,15 @@ def build_gui():
         
         # Load configuration from environment variables
         from core.knowledge.kb_config import load_config_from_env
-        import os
-        
-        # Debug: Show environment variables
-        with st.expander("🔧 デバッグ情報"):
-            st.write("**環境変数の状態:**")
-            env_vars = [
-                'BEDROCK_KB_ID', 'BEDROCK_KB_REGION', 'BEDROCK_KB_MODE',
-                'BEDROCK_KB_TOP_K', 'BEDROCK_KB_CONFIDENCE_THRESHOLD',
-                'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_DEFAULT_REGION'
-            ]
-            for var in env_vars:
-                value = os.getenv(var)
-                if var in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY']:
-                    # Mask sensitive values
-                    display_value = f"{value[:4]}***{value[-4:]}" if value and len(value) > 8 else "未設定" if not value else "設定済み"
-                else:
-                    display_value = value if value else "未設定"
-                st.write(f"- `{var}`: {display_value}")
         
         kb_config = load_config_from_env()
         if kb_config:
-            st.success(f"✅ Bedrock KnowledgeBase設定済み")
-            st.info(f"**Mode:** {kb_config.mode}")
-            st.info(f"**KnowledgeBase ID:** {kb_config.knowledge_base_id}")
-            st.info(f"**Region:** {kb_config.region}")
-            st.info(f"**Top K:** {kb_config.similarity_top_k}")
-            st.info(f"**Confidence Threshold:** {kb_config.confidence_threshold}")
+            debug_success(f"✅ Bedrock KnowledgeBase設定済み")
+            debug_info(f"**Mode:** {kb_config.mode}")
+            debug_info(f"**KnowledgeBase ID:** {kb_config.knowledge_base_id}")
+            debug_info(f"**Region:** {kb_config.region}")
+            debug_info(f"**Top K:** {kb_config.similarity_top_k}")
+            debug_info(f"**Confidence Threshold:** {kb_config.confidence_threshold}")
             
             # Test connection button
             if st.button("🔍 接続テスト"):
@@ -86,8 +88,8 @@ def build_gui():
             st.session_state["kb_config"] = kb_config
             st.session_state["kb_config_changed"] = True
         else:
-            st.warning("⚠️ Bedrock KnowledgeBase未設定")
-            st.info("環境変数 `BEDROCK_KB_ID` を設定してください")
+            debug_warning("⚠️ Bedrock KnowledgeBase未設定")
+            debug_info("環境変数 `BEDROCK_KB_ID` を設定してください")
             
             # Show example configuration
             with st.expander("設定例"):
@@ -101,7 +103,7 @@ export BEDROCK_KB_CONFIDENCE_THRESHOLD=0.0
             
             # Set local mode as fallback
             st.session_state["kb_config"] = None
-            st.info("ℹ️ ローカルファイルのみを使用")
+            debug_info("ℹ️ ローカルファイルのみを使用")
         
         st.markdown('---')
         
@@ -130,13 +132,11 @@ export BEDROCK_KB_CONFIDENCE_THRESHOLD=0.0
     
     # Provide initial guiding prompt after clicking the clear button
     with open('core/knowledge/prompts/prompt.txt', 'r') as file:
-        content1 = file.read()
-    with open('core/knowledge/prompts/init_reply.txt', 'r') as file:
-        reply = file.read()
+        system_prompt = file.read()
         
     if clear_button or ("messages" not in st.session_state):  # Initialize the chat messages history
-        st.session_state.messages = [{"role": "user", "content": content1},
-                                     {"role": "assistant", "content": reply},]
+        st.session_state.messages = []  # 空のリストで初期化
+        st.session_state.system_prompt = system_prompt  # システムプロンプトは別途保持
 
 
 def upload_func(uploaded_file, file_type):
@@ -204,7 +204,7 @@ def display_history():
     """
         Display the historical chat messages
     """
-    for msg in st.session_state.messages[2:]:  # Display the prior chat messages
+    for msg in st.session_state.messages:  # Display the prior chat messages
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
             if "images" in msg:

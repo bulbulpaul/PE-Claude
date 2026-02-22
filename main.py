@@ -36,15 +36,19 @@ if __name__ == "__main__":
     from core.knowledge.kb_config import load_config_from_env
     import os
     
-    # Debug: Show if BEDROCK_KB_ID is set
-    kb_id_set = bool(os.getenv('BEDROCK_KB_ID'))
-    st.info(f"環境変数 BEDROCK_KB_ID: {'設定済み' if kb_id_set else '未設定'}")
+    # Debug mode: set DEBUG_MODE=true for local development
+    debug_mode = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
     
     kb_config = load_config_from_env()
-    if kb_config:
-        st.success(f"✅ KnowledgeBase設定を読み込みました: {kb_config.mode}モード (ID: {kb_config.knowledge_base_id[:10]}...)")
-    else:
-        st.info("ℹ️ KnowledgeBase設定が見つかりません。ローカルモードで動作します。")
+    if debug_mode:
+        # Debug: Show if BEDROCK_KB_ID is set
+        kb_id_set = bool(os.getenv('BEDROCK_KB_ID'))
+        st.info(f"環境変数 BEDROCK_KB_ID: {'設定済み' if kb_id_set else '未設定'}")
+        
+        if kb_config:
+            st.success(f"✅ KnowledgeBase設定を読み込みました: {kb_config.mode}モード (ID: {kb_config.knowledge_base_id[:10]}...)")
+        else:
+            st.info("ℹ️ KnowledgeBase設定が見つかりません。ローカルモードで動作します。")
         
     
     # Use Retrieval Augmented Generation (RAG) to embed customized knowledge base
