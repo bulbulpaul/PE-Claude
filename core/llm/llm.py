@@ -26,6 +26,28 @@ from llama_index.core.base.llms.types import ChatMessage as LLMChatMessage, Mess
 from typing import Any, List, Optional, Sequence
 
 
+# Debug mode: set DEBUG_MODE=true for local development to show debug messages
+DEBUG_MODE = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
+
+
+def debug_info(message: str):
+    """Display info message only in debug mode"""
+    if DEBUG_MODE:
+        st.info(message)
+
+
+def debug_success(message: str):
+    """Display success message only in debug mode"""
+    if DEBUG_MODE:
+        st.success(message)
+
+
+def debug_warning(message: str):
+    """Display warning message only in debug mode"""
+    if DEBUG_MODE:
+        st.warning(message)
+
+
 
 
 class BedrockConfig:
@@ -35,14 +57,15 @@ class BedrockConfig:
     
     # Default values for configuration
     DEFAULT_REGION = "us-east-1"
-    DEFAULT_MODEL_ID = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    DEFAULT_MODEL_ID = "us.anthropic.claude-opus-4-5-20251101-v1:0"
     DEFAULT_EMBEDDING_MODEL_ID = "amazon.titan-embed-text-v2:0"
-    DEFAULT_MAX_TOKENS = 1000
+    DEFAULT_MAX_TOKENS = 64000
     DEFAULT_TEMPERATURE = 0.0
     
     # Available Claude models (verified with AWS Bedrock)
     AVAILABLE_MODELS = {
         # Claude 4.5 models using inference profiles (verified available in us-east-1)
+        "claude-4.5-opus": "us.anthropic.claude-opus-4-5-20251101-v1:0",
         "claude-4.5-sonnet": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         "claude-4.5-haiku": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
         # Claude 4.0 models using inference profiles (verified available in us-east-1)
@@ -50,6 +73,7 @@ class BedrockConfig:
         "claude-4-opus": "us.anthropic.claude-opus-4-20250514-v1:0",
         "claude-4.1-opus": "us.anthropic.claude-opus-4-1-20250805-v1:0",
         # Global inference profiles (alternative)
+        "claude-4.5-opus-global": "global.anthropic.claude-opus-4-5-20251101-v1:0",
         "claude-4.5-sonnet-global": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
         "claude-4.5-haiku-global": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
         "claude-4-sonnet-global": "global.anthropic.claude-sonnet-4-20250514-v1:0"
@@ -70,30 +94,51 @@ class BedrockConfig:
         """Get environment variable with default fallback"""
         value = os.getenv(var_name, default_value)
         if value != default_value:
-            st.info(f"Using {var_name}={value} from environment variable")
+            debug_info(f"Using {var_name}={value} from environment variable")
         return value
+    
+    def _get_max_token_limit(self, model_id: str) -> int:
+        """
+        Get max_tokens limit based on model ID.
+        
+        Args:
+            model_id: Bedrock model ID
+            
+        Returns:
+            Maximum token limit for the model:
+            - Claude 4.x: 64000
+            - Claude 3.5: 8192
+            - Others: 4096
+        """
+        if "claude-4" in model_id or "claude-opus-4" in model_id or "claude-sonnet-4" in model_id or "claude-haiku-4" in model_id:
+            return 64000  # Claude 4.x models
+        elif "claude-3-5" in model_id or "claude-3.5" in model_id:
+            return 8192   # Claude 3.5 models
+        else:
+            return 4096   # Legacy models
     
     def _validate_config(self):
         """Validate configuration values"""
         # Validate region format
         if not self.aws_region or len(self.aws_region.split('-')) < 3:
-            st.warning(f"Invalid AWS region format: {self.aws_region}. Using default: {self.DEFAULT_REGION}")
+            debug_warning(f"Invalid AWS region format: {self.aws_region}. Using default: {self.DEFAULT_REGION}")
             self.aws_region = self.DEFAULT_REGION
         
         # Validate model ID format (including cross-region inference profiles)
-        valid_prefixes = ('anthropic.', 'amazon.', 'us.anthropic.', 'eu.anthropic.')
+        valid_prefixes = ('anthropic.', 'amazon.', 'us.anthropic.', 'eu.anthropic.', 'global.anthropic.')
         if not self.bedrock_model_id.startswith(valid_prefixes):
-            st.warning(f"Invalid model ID format: {self.bedrock_model_id}. Using default: {self.DEFAULT_MODEL_ID}")
+            debug_warning(f"Invalid model ID format: {self.bedrock_model_id}. Using default: {self.DEFAULT_MODEL_ID}")
             self.bedrock_model_id = self.DEFAULT_MODEL_ID
         
-        # Validate max_tokens range
-        if self.max_tokens < 1 or self.max_tokens > 4096:
-            st.warning(f"Invalid max_tokens value: {self.max_tokens}. Using default: {self.DEFAULT_MAX_TOKENS}")
+        # Validate max_tokens range based on model
+        max_token_limit = self._get_max_token_limit(self.bedrock_model_id)
+        if self.max_tokens < 1 or self.max_tokens > max_token_limit:
+            debug_warning(f"Invalid max_tokens value: {self.max_tokens}. Using default: {self.DEFAULT_MAX_TOKENS}")
             self.max_tokens = self.DEFAULT_MAX_TOKENS
         
         # Validate temperature range
         if self.temperature < 0.0 or self.temperature > 1.0:
-            st.warning(f"Invalid temperature value: {self.temperature}. Using default: {self.DEFAULT_TEMPERATURE}")
+            debug_warning(f"Invalid temperature value: {self.temperature}. Using default: {self.DEFAULT_TEMPERATURE}")
             self.temperature = self.DEFAULT_TEMPERATURE
     
     def get_model_display_name(self) -> str:
@@ -136,8 +181,8 @@ def bedrock_init(model_id=None, region=None):
             config.bedrock_model_id = model_id
         
         # Display configuration info
-        st.info(f"Initializing Bedrock client in region: {config.aws_region}")
-        st.info(f"Using model: {config.get_model_display_name()} ({config.bedrock_model_id})")
+        debug_info(f"Initializing Bedrock client in region: {config.aws_region}")
+        debug_info(f"Using model: {config.get_model_display_name()} ({config.bedrock_model_id})")
         
         # Initialize Bedrock Runtime client
         bedrock_client = boto3.client('bedrock-runtime', region_name=config.aws_region)
@@ -147,17 +192,17 @@ def bedrock_init(model_id=None, region=None):
             # Create a separate bedrock client (not runtime) to test connectivity
             bedrock_control_client = boto3.client('bedrock', region_name=config.aws_region)
             bedrock_control_client.list_foundation_models()
-            st.success("✅ Successfully connected to Amazon Bedrock")
+            debug_success("✅ Successfully connected to Amazon Bedrock")
         except ClientError as e:
             if e.response['Error']['Code'] == 'AccessDeniedException':
-                st.info("⚠️ Limited Bedrock access detected. Runtime operations may still work.")
+                debug_info("⚠️ Limited Bedrock access detected. Runtime operations may still work.")
             else:
-                st.info(f"ℹ️ Bedrock connectivity test skipped: {e.response['Error']['Code']}")
+                debug_info(f"ℹ️ Bedrock connectivity test skipped: {e.response['Error']['Code']}")
         except Exception as e:
-            st.info(f"ℹ️ Bedrock connectivity test skipped: {str(e)}")
+            debug_info(f"ℹ️ Bedrock connectivity test skipped: {str(e)}")
             
         # Always show success for client initialization
-        st.success("🚀 Bedrock Runtime client initialized successfully")
+        debug_success("🚀 Bedrock Runtime client initialized successfully")
         
         # Store configuration in session state
         if "bedrock_config" not in st.session_state:
@@ -532,7 +577,7 @@ def enhanced_rag_load(
         local_retriever = None
         if has_local and effective_mode in ["local", "hybrid"]:
             try:
-                st.info("ローカルファイルをインデックス化中...")
+                debug_info("ローカルファイルをインデックス化中...")
                 docs = SimpleDirectoryReader(database_folder).load_data()
                 node_parser = SimpleNodeParser.from_defaults(chunk_size=chunk_size)
                 nodes = node_parser.get_nodes_from_documents(docs)
@@ -541,7 +586,7 @@ def enhanced_rag_load(
                 local_retriever = local_index.as_retriever(
                     similarity_top_k=knowledge_base_config.similarity_top_k if knowledge_base_config else 5
                 )
-                st.success(f"ローカルファイル {len(docs)} 件をインデックス化完了")
+                debug_success(f"ローカルファイル {len(docs)} 件をインデックス化完了")
                 
             except Exception as e:
                 # Use enhanced error handler
@@ -555,7 +600,7 @@ def enhanced_rag_load(
                 if effective_mode == "local":
                     raise
                 # For hybrid mode, continue without local
-                st.warning("ハイブリッドモードでローカル検索を無効化し、Bedrockのみで続行します")
+                debug_warning("ハイブリッドモードでローカル検索を無効化し、Bedrockのみで続行します")
                 effective_mode = "bedrock"
         
         # Create hybrid retriever or return local-only index
@@ -578,7 +623,7 @@ def enhanced_rag_load(
                     local_index=local_index if local_retriever else None
                 )
                 
-                st.success(f"Enhanced RAG初期化完了 (モード: {effective_mode})")
+                debug_success(f"Enhanced RAG初期化完了 (モード: {effective_mode})")
                 return enhanced_index
                 
             except Exception as e:
@@ -592,7 +637,7 @@ def enhanced_rag_load(
                 
                 # Fallback logic
                 if knowledge_base_config and knowledge_base_config.enable_fallback and local_retriever:
-                    st.warning("Bedrock初期化に失敗しました。ローカルモードにフォールバックします")
+                    debug_warning("Bedrock初期化に失敗しました。ローカルモードにフォールバックします")
                     return local_index
                 else:
                     raise
@@ -784,11 +829,11 @@ def convert_messages_to_bedrock_format(openai_messages):
             try:
                 # Validate message structure
                 if not isinstance(msg, dict):
-                    st.warning(f"メッセージ {i+1} が辞書形式ではありません。スキップします。")
+                    debug_warning(f"メッセージ {i+1} が辞書形式ではありません。スキップします。")
                     continue
                 
                 if "role" not in msg or "content" not in msg:
-                    st.warning(f"メッセージ {i+1} にroleまたはcontentが含まれていません。スキップします。")
+                    debug_warning(f"メッセージ {i+1} にroleまたはcontentが含まれていません。スキップします。")
                     continue
                 
                 role = msg["role"]
@@ -796,7 +841,7 @@ def convert_messages_to_bedrock_format(openai_messages):
                 
                 # Validate role
                 if role not in valid_roles:
-                    st.warning(f"メッセージ {i+1} の無効なrole: {role}。スキップします。")
+                    debug_warning(f"メッセージ {i+1} の無効なrole: {role}。スキップします。")
                     continue
                 
                 # Collect system messages separately for Claude 4.5
@@ -807,7 +852,7 @@ def convert_messages_to_bedrock_format(openai_messages):
                 
                 # Validate content
                 if not content or (isinstance(content, str) and len(content.strip()) == 0):
-                    st.warning(f"メッセージ {i+1} の内容が空です。スキップします。")
+                    debug_warning(f"メッセージ {i+1} の内容が空です。スキップします。")
                     continue
                 
                 # Ensure content is string
@@ -824,7 +869,7 @@ def convert_messages_to_bedrock_format(openai_messages):
                 bedrock_messages.append(bedrock_msg)
                 
             except Exception as e:
-                st.warning(f"メッセージ {i+1} の変換中にエラーが発生しました: {str(e)}。スキップします。")
+                debug_warning(f"メッセージ {i+1} の変換中にエラーが発生しました: {str(e)}。スキップします。")
                 continue
         
         # Validate that we have at least one valid message
@@ -833,7 +878,7 @@ def convert_messages_to_bedrock_format(openai_messages):
         
         # Ensure conversation starts with user message
         if bedrock_messages[0]["role"] != "user":
-            st.warning("会話はユーザーメッセージから開始する必要があります。")
+            debug_warning("会話はユーザーメッセージから開始する必要があります。")
         
         return bedrock_messages
         
@@ -889,18 +934,28 @@ def bedrock_chat_completion(client, messages, model_id=None, **kwargs):
             raise BedrockError("変換後のメッセージが空です", "EmptyConvertedMessages")
         
         # Prepare request body for Claude with validation
-        max_tokens = kwargs.get("max_tokens", 1000)
+        max_tokens = kwargs.get("max_tokens", BedrockConfig.DEFAULT_MAX_TOKENS)
         temperature = kwargs.get("temperature", 0.0)
         
-        # Validate parameters - Claude 4+ models may have different limits
-        max_token_limit = 8192 if ("claude-4" in model_id or "claude-sonnet-4" in model_id or "claude-haiku-4" in model_id or "claude-opus-4" in model_id) else 4096
+        # Validate parameters - Claude 4+ models have higher limits
+        # Use BedrockConfig's _get_max_token_limit logic for consistency
+        def get_max_token_limit(model_id: str) -> int:
+            """Get max_tokens limit based on model ID."""
+            if "claude-4" in model_id or "claude-opus-4" in model_id or "claude-sonnet-4" in model_id or "claude-haiku-4" in model_id:
+                return 64000  # Claude 4.x models
+            elif "claude-3-5" in model_id or "claude-3.5" in model_id:
+                return 8192   # Claude 3.5 models
+            else:
+                return 4096   # Legacy models
+        
+        max_token_limit = get_max_token_limit(model_id)
         
         if not isinstance(max_tokens, int) or max_tokens < 1 or max_tokens > max_token_limit:
-            st.warning(f"無効なmax_tokens値: {max_tokens}。デフォルト値1000を使用します。")
-            max_tokens = 1000
+            debug_warning(f"無効なmax_tokens値: {max_tokens}。デフォルト値{BedrockConfig.DEFAULT_MAX_TOKENS}を使用します。")
+            max_tokens = BedrockConfig.DEFAULT_MAX_TOKENS
         
         if not isinstance(temperature, (int, float)) or temperature < 0.0 or temperature > 1.0:
-            st.warning(f"無効なtemperature値: {temperature}。デフォルト値0.0を使用します。")
+            debug_warning(f"無効なtemperature値: {temperature}。デフォルト値0.0を使用します。")
             temperature = 0.0
         
         # Use appropriate API version based on model
@@ -925,10 +980,10 @@ def bedrock_chat_completion(client, messages, model_id=None, **kwargs):
                 request_body["system"] = kwargs["system_prompt"].strip()
         
         # Log request details for debugging (without sensitive content)
-        st.info(f"Bedrock API呼び出し: モデル={model_id}, メッセージ数={len(bedrock_messages)}, max_tokens={max_tokens}")
+        debug_info(f"Bedrock API呼び出し: モデル={model_id}, メッセージ数={len(bedrock_messages)}, max_tokens={max_tokens}")
         
         # Debug: Log request body structure (without content)
-        debug_info = {
+        request_debug_info = {
             "anthropic_version": request_body.get("anthropic_version"),
             "max_tokens": request_body.get("max_tokens"),
             "temperature": request_body.get("temperature"),
@@ -936,7 +991,7 @@ def bedrock_chat_completion(client, messages, model_id=None, **kwargs):
             "message_count": len(request_body.get("messages", [])),
             "message_roles": [msg.get("role") for msg in request_body.get("messages", [])]
         }
-        print(f"DEBUG: Request structure: {debug_info}")
+        print(f"DEBUG: Request structure: {request_debug_info}")
         
         # Call Bedrock API with retry logic
         response = robust_bedrock_call(client, model_id, request_body)
@@ -946,7 +1001,7 @@ def bedrock_chat_completion(client, messages, model_id=None, **kwargs):
         
         # Validate response
         if not parsed_response.get("content"):
-            st.warning("Claudeからの応答が空でした。")
+            debug_warning("Claudeからの応答が空でした。")
             parsed_response["content"] = "申し訳ございませんが、応答を生成できませんでした。"
         
         return parsed_response
@@ -1056,7 +1111,7 @@ def robust_bedrock_call(client, model_id, request_body, max_retries=3):
         try:
             # Log attempt for debugging
             if attempt > 0:
-                st.info(f"Bedrock API呼び出し試行 {attempt + 1}/{max_retries}")
+                debug_info(f"Bedrock API呼び出し試行 {attempt + 1}/{max_retries}")
             
             # Debug: Log request details on first attempt or if debugging is enabled
             if attempt == 0:
@@ -1074,7 +1129,7 @@ def robust_bedrock_call(client, model_id, request_body, max_retries=3):
             
             # Success - log if this was a retry
             if attempt > 0:
-                st.success(f"Bedrock API呼び出しが成功しました (試行 {attempt + 1})")
+                debug_success(f"Bedrock API呼び出しが成功しました (試行 {attempt + 1})")
             
             return response
             
@@ -1087,7 +1142,7 @@ def robust_bedrock_call(client, model_id, request_body, max_retries=3):
             if error_code in ['ThrottlingException', 'ServiceUnavailableException', 'InternalServerException']:
                 if attempt < max_retries - 1:
                     wait_time = min(2 ** attempt, 30)  # Cap at 30 seconds
-                    st.warning(f"一時的なエラーが発生しました。{wait_time}秒後に再試行します... (試行 {attempt + 1}/{max_retries})")
+                    debug_warning(f"一時的なエラーが発生しました。{wait_time}秒後に再試行します... (試行 {attempt + 1}/{max_retries})")
                     time.sleep(wait_time)
                     continue
             
@@ -1107,7 +1162,7 @@ def robust_bedrock_call(client, model_id, request_body, max_retries=3):
             # Retry for unexpected errors
             if attempt < max_retries - 1:
                 wait_time = min(2 ** attempt, 30)
-                st.warning(f"予期しないエラーが発生しました。{wait_time}秒後に再試行します... (試行 {attempt + 1}/{max_retries})")
+                debug_warning(f"予期しないエラーが発生しました。{wait_time}秒後に再試行します... (試行 {attempt + 1}/{max_retries})")
                 time.sleep(wait_time)
                 continue
             else:
@@ -1175,7 +1230,7 @@ def parse_bedrock_response(bedrock_response):
         
         # Validate that we got some content
         if not content or not isinstance(content, str):
-            st.warning("⚠️ Claudeからの応答が空でした")
+            debug_warning("⚠️ Claudeからの応答が空でした")
             content = "申し訳ございませんが、応答を生成できませんでした。"
         
         # Extract and validate usage information
@@ -1201,7 +1256,7 @@ def parse_bedrock_response(bedrock_response):
         
         # Log successful parsing for debugging
         token_info = f"入力: {usage['input_tokens']} トークン, 出力: {usage['output_tokens']} トークン"
-        st.info(f"✅ レスポンス解析完了 ({token_info})")
+        debug_info(f"✅ レスポンス解析完了 ({token_info})")
         
         return parsed_response
         

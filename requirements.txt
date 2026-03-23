@@ -5,11 +5,10 @@ llama-index-llms-bedrock
 llama-index-embeddings-bedrock
 matplotlib
 numpy
-onnxruntime
-
 pandas
 psutil
 pyswarms
+requests
 scipy
 streamlit
-torch
+torch --index-url https://download.pytorch.org/whl/cpu

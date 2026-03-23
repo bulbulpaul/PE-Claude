@@ -61,7 +61,7 @@
       "success": true,
       "message": "API call successful",
       "details": {
-        "Response Time": "3.09 seconds",
+        "Response Time": "2.70 seconds",
         "Content Length": 19,
         "Model Used": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         "Input Tokens": 26,

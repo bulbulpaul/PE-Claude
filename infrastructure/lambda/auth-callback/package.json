@@ -1,0 +1,6 @@
+{
+  "name": "cognito-auth-callback",
+  "version": "1.0.0",
+  "description": "Lambda@Edge function for handling OAuth callback",
+  "main": "index.js"
+}

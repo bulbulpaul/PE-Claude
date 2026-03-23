@@ -1,0 +1,277 @@
+name: PE-GPT ECS Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - production
+      force_deploy:
+        description: 'Force deployment without approval'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: pe-gpt
+
+jobs:
+  # 環境設定とバリデーション
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      image-tag: ${{ steps.env.outputs.image-tag }}
+      should-deploy: ${{ steps.env.outputs.should-deploy }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine environment and deployment
+        id: env
+        run: |
+          # 環境の決定
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+            SHOULD_DEPLOY="true"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            ENVIRONMENT="production"
+            SHOULD_DEPLOY="true"
+          elif [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            ENVIRONMENT="development"
+            SHOULD_DEPLOY="true"
+          else
+            ENVIRONMENT="development"
+            SHOULD_DEPLOY="false"
+          fi
+          
+          # イメージタグの生成
+          IMAGE_TAG="${{ github.sha }}"
+          
+          echo "environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT
+          echo "image-tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "should-deploy=${SHOULD_DEPLOY}" >> $GITHUB_OUTPUT
+          
+          echo "Environment: ${ENVIRONMENT}"
+          echo "Image Tag: ${IMAGE_TAG}"
+          echo "Should Deploy: ${SHOULD_DEPLOY}"
+
+  # Dockerイメージのビルドとテスト
+  build:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.ECR_REPOSITORY }}:${{ needs.setup.outputs.image-tag }} \
+            -t ${{ env.ECR_REPOSITORY }}:latest \
+            .
+
+      - name: Test Docker image
+        run: |
+          # ヘルスチェックスクリプトの作成
+          cat > health_check.py << 'EOF'
+          #!/usr/bin/env python3
+          import requests
+          import sys
+          import time
+          
+          def health_check():
+              try:
+                  response = requests.get('http://localhost:8501/_stcore/health', timeout=5)
+                  if response.status_code == 200:
+                      print("✅ Health check passed")
+                      return True
+                  else:
+                      print(f"❌ Health check failed: HTTP {response.status_code}")
+                      return False
+              except Exception as e:
+                  print(f"❌ Health check failed: {e}")
+                  return False
+          
+          if __name__ == "__main__":
+              # コンテナ起動を待機
+              time.sleep(10)
+              success = health_check()
+              sys.exit(0 if success else 1)
+          EOF
+          
+          # テスト用コンテナの起動
+          CONTAINER_ID=$(docker run -d \
+            -p 8501:8501 \
+            -e AWS_DEFAULT_REGION=${{ env.AWS_REGION }} \
+            -e STREAMLIT_SERVER_HEADLESS=true \
+            ${{ env.ECR_REPOSITORY }}:${{ needs.setup.outputs.image-tag }})
+          
+          # ヘルスチェックの実行
+          docker cp health_check.py $CONTAINER_ID:/tmp/health_check.py
+          if docker exec $CONTAINER_ID python /tmp/health_check.py; then
+            echo "✅ Docker image test passed"
+          else
+            echo "❌ Docker image test failed"
+            docker logs $CONTAINER_ID
+            exit 1
+          fi
+          
+          # クリーンアップ
+          docker stop $CONTAINER_ID
+          docker rm $CONTAINER_ID
+
+      - name: Push to Amazon ECR
+        if: needs.setup.outputs.should-deploy == 'true'
+        run: |
+          docker tag ${{ env.ECR_REPOSITORY }}:${{ needs.setup.outputs.image-tag }} \
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ needs.setup.outputs.image-tag }}
+          
+          docker tag ${{ env.ECR_REPOSITORY }}:latest \
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ needs.setup.outputs.image-tag }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+
+  # CDKインフラストラクチャのデプロイ
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [setup, build]
+    if: needs.setup.outputs.should-deploy == 'true'
+    environment: ${{ needs.setup.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install CDK dependencies
+        run: |
+          cd infrastructure
+          npm ci
+
+      - name: Build CDK project
+        run: |
+          cd infrastructure
+          npm run build
+
+      - name: CDK Bootstrap
+        run: |
+          cd infrastructure
+          npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }}
+
+      - name: CDK Deploy
+        run: |
+          cd infrastructure
+          
+          # 環境変数の設定
+          export CDK_DEFAULT_ACCOUNT=${{ secrets.AWS_ACCOUNT_ID }}
+          export CDK_DEFAULT_REGION=${{ env.AWS_REGION }}
+          export CDK_CONTEXT_ENVIRONMENT=${{ needs.setup.outputs.environment }}
+          export CDK_CONTEXT_IMAGE_TAG=${{ needs.setup.outputs.image-tag }}
+          export CDK_CONTEXT_BEDROCK_KB_ID=${{ secrets.BEDROCK_KB_ID }}
+          
+          # デプロイの実行
+          npx cdk deploy \
+            --require-approval never \
+            --context environment=${{ needs.setup.outputs.environment }} \
+            --context imageTag=${{ needs.setup.outputs.image-tag }} \
+            --context bedrockKbId=${{ secrets.BEDROCK_KB_ID }}
+
+      - name: Get deployment outputs
+        id: outputs
+        run: |
+          cd infrastructure
+          
+          # ALB DNS名の取得
+          ALB_DNS=$(aws cloudformation describe-stacks \
+            --stack-name PeGptEcsStack \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDnsName`].OutputValue' \
+            --output text)
+          
+          echo "alb-dns=${ALB_DNS}" >> $GITHUB_OUTPUT
+          echo "Application URL: http://${ALB_DNS}"
+
+      - name: Health check deployment
+        run: |
+          ALB_DNS="${{ steps.outputs.outputs.alb-dns }}"
+          if [ -n "${ALB_DNS}" ]; then
+            echo "Waiting for deployment to be ready..."
+            sleep 60
+            
+            # ヘルスチェックの実行
+            for i in {1..10}; do
+              if curl -f "http://${ALB_DNS}" > /dev/null 2>&1; then
+                echo "✅ Deployment health check passed"
+                exit 0
+              fi
+              echo "Attempt $i/10 failed, waiting..."
+              sleep 30
+            done
+            
+            echo "❌ Deployment health check failed"
+            exit 1
+          else
+            echo "❌ Could not get ALB DNS name"
+            exit 1
+          fi
+
+  # デプロイ通知
+  notify:
+    runs-on: ubuntu-latest
+    needs: [setup, build, deploy]
+    if: always()
+    steps:
+      - name: Notify deployment result
+        run: |
+          if [ "${{ needs.deploy.result }}" = "success" ]; then
+            echo "🎉 PE-GPT deployment to ${{ needs.setup.outputs.environment }} succeeded!"
+            echo "Environment: ${{ needs.setup.outputs.environment }}"
+            echo "Image Tag: ${{ needs.setup.outputs.image-tag }}"
+            echo "Region: ${{ env.AWS_REGION }}"
+          else
+            echo "❌ PE-GPT deployment to ${{ needs.setup.outputs.environment }} failed!"
+            echo "Check the logs for more details."
+          fi

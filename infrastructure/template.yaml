@@ -1,0 +1,1420 @@
+Description: PE-GPT ECS Fargate deployment with ALB
+Resources:
+  PeGptVpc6CC6AD1C:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-VPC
+        - Key: Project
+          Value: PE-GPT
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/Resource
+  PeGptVpcPublicSubnetSubnet1Subnet7DAF0BD0:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+      AvailabilityZone: ap-northeast-1a
+      CidrBlock: 10.0.0.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: aws-cdk:subnet-name
+          Value: PublicSubnet
+        - Key: aws-cdk:subnet-type
+          Value: Public
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Public-Subnet-1
+        - Key: Project
+          Value: PE-GPT
+        - Key: Type
+          Value: Public
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PublicSubnetSubnet1/Subnet
+  PeGptVpcPublicSubnetSubnet1RouteTable7404C2CF:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Public-Subnet-1
+        - Key: Project
+          Value: PE-GPT
+        - Key: Type
+          Value: Public
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PublicSubnetSubnet1/RouteTable
+  PeGptVpcPublicSubnetSubnet1RouteTableAssociation60024CCE:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: PeGptVpcPublicSubnetSubnet1RouteTable7404C2CF
+      SubnetId:
+        Ref: PeGptVpcPublicSubnetSubnet1Subnet7DAF0BD0
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PublicSubnetSubnet1/RouteTableAssociation
+  PeGptVpcPublicSubnetSubnet1DefaultRouteC6B1EC9A:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: PeGptVpcPublicSubnetSubnet1RouteTable7404C2CF
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: PeGptVpcIGW95E71289
+    DependsOn:
+      - PeGptVpcVPCGWF4758F38
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PublicSubnetSubnet1/DefaultRoute
+  PeGptVpcPublicSubnetSubnet1EIP49662B99:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Public-Subnet-1
+        - Key: Project
+          Value: PE-GPT
+        - Key: Type
+          Value: Public
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PublicSubnetSubnet1/EIP
+  PeGptVpcPublicSubnetSubnet1NATGatewayB3AE65A5:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      SubnetId:
+        Ref: PeGptVpcPublicSubnetSubnet1Subnet7DAF0BD0
+      AllocationId:
+        Fn::GetAtt:
+          - PeGptVpcPublicSubnetSubnet1EIP49662B99
+          - AllocationId
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Public-Subnet-1
+        - Key: Project
+          Value: PE-GPT
+        - Key: Type
+          Value: Public
+    DependsOn:
+      - PeGptVpcPublicSubnetSubnet1DefaultRouteC6B1EC9A
+      - PeGptVpcPublicSubnetSubnet1RouteTableAssociation60024CCE
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PublicSubnetSubnet1/NATGateway
+  PeGptVpcPublicSubnetSubnet2SubnetA8AAD82A:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+      AvailabilityZone: ap-northeast-1c
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: aws-cdk:subnet-name
+          Value: PublicSubnet
+        - Key: aws-cdk:subnet-type
+          Value: Public
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Public-Subnet-2
+        - Key: Project
+          Value: PE-GPT
+        - Key: Type
+          Value: Public
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PublicSubnetSubnet2/Subnet
+  PeGptVpcPublicSubnetSubnet2RouteTableC7F051F7:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Public-Subnet-2
+        - Key: Project
+          Value: PE-GPT
+        - Key: Type
+          Value: Public
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PublicSubnetSubnet2/RouteTable
+  PeGptVpcPublicSubnetSubnet2RouteTableAssociationBE2DCBCC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: PeGptVpcPublicSubnetSubnet2RouteTableC7F051F7
+      SubnetId:
+        Ref: PeGptVpcPublicSubnetSubnet2SubnetA8AAD82A
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PublicSubnetSubnet2/RouteTableAssociation
+  PeGptVpcPublicSubnetSubnet2DefaultRoute3675D910:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: PeGptVpcPublicSubnetSubnet2RouteTableC7F051F7
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: PeGptVpcIGW95E71289
+    DependsOn:
+      - PeGptVpcVPCGWF4758F38
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PublicSubnetSubnet2/DefaultRoute
+  PeGptVpcPrivateSubnetSubnet1SubnetA39ABED4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+      AvailabilityZone: ap-northeast-1a
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: aws-cdk:subnet-name
+          Value: PrivateSubnet
+        - Key: aws-cdk:subnet-type
+          Value: Private
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Private-Subnet-1
+        - Key: Project
+          Value: PE-GPT
+        - Key: Type
+          Value: Private
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PrivateSubnetSubnet1/Subnet
+  PeGptVpcPrivateSubnetSubnet1RouteTable8A71D0E3:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Private-Subnet-1
+        - Key: Project
+          Value: PE-GPT
+        - Key: Type
+          Value: Private
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PrivateSubnetSubnet1/RouteTable
+  PeGptVpcPrivateSubnetSubnet1RouteTableAssociation313E40F2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: PeGptVpcPrivateSubnetSubnet1RouteTable8A71D0E3
+      SubnetId:
+        Ref: PeGptVpcPrivateSubnetSubnet1SubnetA39ABED4
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PrivateSubnetSubnet1/RouteTableAssociation
+  PeGptVpcPrivateSubnetSubnet1DefaultRoute59E7C51D:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: PeGptVpcPrivateSubnetSubnet1RouteTable8A71D0E3
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: PeGptVpcPublicSubnetSubnet1NATGatewayB3AE65A5
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PrivateSubnetSubnet1/DefaultRoute
+  PeGptVpcPrivateSubnetSubnet2SubnetEE84B4B2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+      AvailabilityZone: ap-northeast-1c
+      CidrBlock: 10.0.3.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: aws-cdk:subnet-name
+          Value: PrivateSubnet
+        - Key: aws-cdk:subnet-type
+          Value: Private
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Private-Subnet-2
+        - Key: Project
+          Value: PE-GPT
+        - Key: Type
+          Value: Private
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PrivateSubnetSubnet2/Subnet
+  PeGptVpcPrivateSubnetSubnet2RouteTable4ECF1AD0:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Private-Subnet-2
+        - Key: Project
+          Value: PE-GPT
+        - Key: Type
+          Value: Private
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PrivateSubnetSubnet2/RouteTable
+  PeGptVpcPrivateSubnetSubnet2RouteTableAssociation80403060:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: PeGptVpcPrivateSubnetSubnet2RouteTable4ECF1AD0
+      SubnetId:
+        Ref: PeGptVpcPrivateSubnetSubnet2SubnetEE84B4B2
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PrivateSubnetSubnet2/RouteTableAssociation
+  PeGptVpcPrivateSubnetSubnet2DefaultRouteF47F9A7F:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: PeGptVpcPrivateSubnetSubnet2RouteTable4ECF1AD0
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: PeGptVpcPublicSubnetSubnet1NATGatewayB3AE65A5
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/PrivateSubnetSubnet2/DefaultRoute
+  PeGptVpcIGW95E71289:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-VPC
+        - Key: Project
+          Value: PE-GPT
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/IGW
+  PeGptVpcVPCGWF4758F38:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+      InternetGatewayId:
+        Ref: PeGptVpcIGW95E71289
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/VPCGW
+  PeGptVpcRestrictDefaultSecurityGroupCustomResource150C5CA7:
+    Type: Custom::VpcRestrictDefaultSG
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - CustomVpcRestrictDefaultSGCustomResourceProviderHandlerDC833E5E
+          - Arn
+      DefaultSecurityGroupId:
+        Fn::GetAtt:
+          - PeGptVpc6CC6AD1C
+          - DefaultSecurityGroup
+      Account: "893914327331"
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpc/RestrictDefaultSecurityGroupCustomResource/Default
+  CustomVpcRestrictDefaultSGCustomResourceProviderRole26592FE0:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: Inline
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:AuthorizeSecurityGroupIngress
+                  - ec2:AuthorizeSecurityGroupEgress
+                  - ec2:RevokeSecurityGroupIngress
+                  - ec2:RevokeSecurityGroupEgress
+                Resource:
+                  - Fn::Join:
+                      - ""
+                      - - arn:aws:ec2:ap-northeast-1:893914327331:security-group/
+                        - Fn::GetAtt:
+                            - PeGptVpc6CC6AD1C
+                            - DefaultSecurityGroup
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/Custom::VpcRestrictDefaultSGCustomResourceProvider/Role
+  CustomVpcRestrictDefaultSGCustomResourceProviderHandlerDC833E5E:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-893914327331-ap-northeast-1
+        S3Key: e77031893275c08bcaa0a774aa8b611727afd045b3b5d8e1e6f0f04063d9d386.zip
+      Timeout: 900
+      MemorySize: 128
+      Handler: __entrypoint__.handler
+      Role:
+        Fn::GetAtt:
+          - CustomVpcRestrictDefaultSGCustomResourceProviderRole26592FE0
+          - Arn
+      Runtime: nodejs16.x
+      Description: Lambda function for removing all inbound/outbound rules from the VPC default security group
+    DependsOn:
+      - CustomVpcRestrictDefaultSGCustomResourceProviderRole26592FE0
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/Custom::VpcRestrictDefaultSGCustomResourceProvider/Handler
+      aws:asset:path: asset.e77031893275c08bcaa0a774aa8b611727afd045b3b5d8e1e6f0f04063d9d386
+      aws:asset:property: Code
+  VpcFlowLogGroup86559C69:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/vpc/pe-gpt-flowlogs
+      RetentionInDays: 7
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/VpcFlowLogGroup/Resource
+  PeGptVpcFlowLogIAMRole7F11DD84:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: vpc-flow-logs.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpcFlowLog/IAMRole/Resource
+  PeGptVpcFlowLogIAMRoleDefaultPolicy47B44790:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - logs:CreateLogStream
+              - logs:DescribeLogStreams
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - VpcFlowLogGroup86559C69
+                - Arn
+          - Action: iam:PassRole
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - PeGptVpcFlowLogIAMRole7F11DD84
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: PeGptVpcFlowLogIAMRoleDefaultPolicy47B44790
+      Roles:
+        - Ref: PeGptVpcFlowLogIAMRole7F11DD84
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpcFlowLog/IAMRole/DefaultPolicy/Resource
+  PeGptVpcFlowLog44A425E1:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      ResourceId:
+        Ref: PeGptVpc6CC6AD1C
+      ResourceType: VPC
+      DeliverLogsPermissionArn:
+        Fn::GetAtt:
+          - PeGptVpcFlowLogIAMRole7F11DD84
+          - Arn
+      LogDestinationType: cloud-watch-logs
+      LogGroupName:
+        Ref: VpcFlowLogGroup86559C69
+      TrafficType: ALL
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptVpcFlowLog/FlowLog
+  PlaceholderSecurityGroup27AF82F1:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Placeholder security group to ensure VPC creation
+      SecurityGroupEgress:
+        - CidrIp: 255.255.255.255/32
+          Description: Disallow all traffic
+          FromPort: 252
+          IpProtocol: icmp
+          ToPort: 86
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PlaceholderSecurityGroup/Resource
+  PeGptRepository002EF393:
+    Type: AWS::ECR::Repository
+    Properties:
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      LifecyclePolicy:
+        LifecyclePolicyText: '{"rules":[{"rulePriority":1,"description":"Delete untagged images after 1 day","selection":{"tagStatus":"untagged","countType":"sinceImagePushed","countNumber":1,"countUnit":"days"},"action":{"type":"expire"}},{"rulePriority":2,"description":"Keep only the latest 10 images","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":10},"action":{"type":"expire"}}]}'
+      RepositoryName: pe-gpt
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-ECR-Repository
+        - Key: Project
+          Value: PE-GPT
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptRepository/Resource
+  PeGptTaskExecutionRole28FFDB7F:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+        Version: "2012-10-17"
+      Description: ECS Task Execution Role for PE-GPT application
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      RoleName: pe-gpt-task-execution-role
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Task-Execution-Role
+        - Key: Project
+          Value: PE-GPT
+        - Key: Purpose
+          Value: ECS-Task-Execution
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptTaskExecutionRole/Resource
+  PeGptTaskExecutionRoleDefaultPolicy0E69F87C:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:BatchGetImage
+              - ecr:GetAuthorizationToken
+              - ecr:GetDownloadUrlForLayer
+            Effect: Allow
+            Resource:
+              - "*"
+              - Fn::GetAtt:
+                  - PeGptRepository002EF393
+                  - Arn
+          - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource: arn:aws:logs:ap-northeast-1:893914327331:log-group:/ecs/pe-gpt*
+          - Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:BatchGetImage
+              - ecr:GetDownloadUrlForLayer
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - PeGptRepository002EF393
+                - Arn
+          - Action: ecr:GetAuthorizationToken
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - PeGptLogGroup0B88ABA5
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: PeGptTaskExecutionRoleDefaultPolicy0E69F87C
+      Roles:
+        - Ref: PeGptTaskExecutionRole28FFDB7F
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptTaskExecutionRole/DefaultPolicy/Resource
+  PeGptTaskRoleA990EF15:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+        Version: "2012-10-17"
+      Description: ECS Task Role for PE-GPT application to access AWS Bedrock
+      RoleName: pe-gpt-task-role
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Task-Role
+        - Key: Project
+          Value: PE-GPT
+        - Key: Purpose
+          Value: Bedrock-Access
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptTaskRole/Resource
+  PeGptTaskRoleDefaultPolicy2B31B0BD:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - bedrock:GetFoundationModel
+              - bedrock:InvokeModel
+              - bedrock:InvokeModelWithResponseStream
+              - bedrock:ListFoundationModels
+              - bedrock:Retrieve
+              - bedrock:RetrieveAndGenerate
+            Effect: Allow
+            Resource:
+              - arn:aws:bedrock:ap-northeast-1:893914327331:knowledge-base/*
+              - arn:aws:bedrock:ap-northeast-1::foundation-model/*
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: arn:aws:s3:::pe-gpt-knowledge-base/*
+          - Action:
+              - logs:CreateLogStream
+              - logs:DescribeLogGroups
+              - logs:DescribeLogStreams
+              - logs:PutLogEvents
+              - ssmmessages:CreateControlChannel
+              - ssmmessages:CreateDataChannel
+              - ssmmessages:OpenControlChannel
+              - ssmmessages:OpenDataChannel
+            Effect: Allow
+            Resource: "*"
+        Version: "2012-10-17"
+      PolicyName: PeGptTaskRoleDefaultPolicy2B31B0BD
+      Roles:
+        - Ref: PeGptTaskRoleA990EF15
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptTaskRole/DefaultPolicy/Resource
+  PeGptCluster2C7A36BB:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: pe-gpt-cluster
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: LaunchType
+          Value: Fargate
+        - Key: Name
+          Value: PE-GPT-ECS-Cluster
+        - Key: Project
+          Value: PE-GPT
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptCluster/Resource
+  PeGptClusterBA4AD902:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      Cluster:
+        Ref: PeGptCluster2C7A36BB
+      DefaultCapacityProviderStrategy: []
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptCluster/PeGptCluster
+  PeGptLogGroup0B88ABA5:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/pe-gpt
+      RetentionInDays: 7
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Log-Group
+        - Key: Project
+          Value: PE-GPT
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptLogGroup/Resource
+  PeGptTaskDefinition79D631B6:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+        - Environment:
+            - Name: AWS_DEFAULT_REGION
+              Value: ap-northeast-1
+            - Name: STREAMLIT_SERVER_HEADLESS
+              Value: "true"
+            - Name: STREAMLIT_SERVER_PORT
+              Value: "8501"
+            - Name: STREAMLIT_SERVER_ADDRESS
+              Value: 0.0.0.0
+          Essential: true
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - curl -f http://localhost:8501/_stcore/health || exit 1
+            Interval: 30
+            Retries: 3
+            StartPeriod: 60
+            Timeout: 5
+          Image:
+            Fn::Join:
+              - ""
+              - - Fn::Select:
+                    - 4
+                    - Fn::Split:
+                        - ":"
+                        - Fn::GetAtt:
+                            - PeGptRepository002EF393
+                            - Arn
+                - .dkr.ecr.
+                - Fn::Select:
+                    - 3
+                    - Fn::Split:
+                        - ":"
+                        - Fn::GetAtt:
+                            - PeGptRepository002EF393
+                            - Arn
+                - "."
+                - Ref: AWS::URLSuffix
+                - /
+                - Ref: PeGptRepository002EF393
+                - :latest
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group:
+                Ref: PeGptLogGroup0B88ABA5
+              awslogs-stream-prefix: pe-gpt
+              awslogs-region: ap-northeast-1
+          Name: pe-gpt
+          PortMappings:
+            - ContainerPort: 8501
+              Name: streamlit-port
+              Protocol: tcp
+      Cpu: "1024"
+      ExecutionRoleArn:
+        Fn::GetAtt:
+          - PeGptTaskExecutionRole28FFDB7F
+          - Arn
+      Family: pe-gpt-task
+      Memory: "2048"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: LaunchType
+          Value: Fargate
+        - Key: Name
+          Value: PE-GPT-Task-Definition
+        - Key: Project
+          Value: PE-GPT
+      TaskRoleArn:
+        Fn::GetAtt:
+          - PeGptTaskRoleA990EF15
+          - Arn
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptTaskDefinition/Resource
+  AlbSecurityGroup86A59E99:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Application Load Balancer - allows HTTP/HTTPS from internet
+      GroupName: pe-gpt-alb-sg
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow HTTP traffic from internet
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+        - CidrIp: 0.0.0.0/0
+          Description: Allow HTTPS traffic from internet
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+      Tags:
+        - Key: Compliance
+          Value: Least-Privilege
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-ALB-Security-Group
+        - Key: Project
+          Value: PE-GPT
+        - Key: Purpose
+          Value: ALB-Traffic-Control
+        - Key: SecurityLevel
+          Value: Internet-Facing
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/AlbSecurityGroup/Resource
+  AlbSecurityGrouptoPeGptEcsStackEcsSecurityGroupBA2DF6568501AB9C475A:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId:
+        Fn::GetAtt:
+          - AlbSecurityGroup86A59E99
+          - GroupId
+      IpProtocol: tcp
+      Description: Allow outbound traffic to ECS tasks on Streamlit port
+      DestinationSecurityGroupId:
+        Fn::GetAtt:
+          - EcsSecurityGroup44008BF1
+          - GroupId
+      FromPort: 8501
+      ToPort: 8501
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/AlbSecurityGroup/to PeGptEcsStackEcsSecurityGroupBA2DF656:8501
+  EcsSecurityGroup44008BF1:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ECS tasks - allows traffic only from ALB
+      GroupName: pe-gpt-ecs-sg
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow HTTPS outbound for AWS services (Bedrock, ECR, etc.)
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+        - CidrIp: 0.0.0.0/0
+          Description: Allow HTTP outbound for package downloads and health checks
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+        - CidrIp: 0.0.0.0/0
+          Description: Allow DNS resolution (UDP)
+          FromPort: 53
+          IpProtocol: udp
+          ToPort: 53
+        - CidrIp: 0.0.0.0/0
+          Description: Allow DNS resolution (TCP)
+          FromPort: 53
+          IpProtocol: tcp
+          ToPort: 53
+        - CidrIp: 0.0.0.0/0
+          Description: Allow NTP for time synchronization
+          FromPort: 123
+          IpProtocol: udp
+          ToPort: 123
+      Tags:
+        - Key: Compliance
+          Value: Least-Privilege
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-ECS-Security-Group
+        - Key: Project
+          Value: PE-GPT
+        - Key: Purpose
+          Value: ECS-Task-Traffic-Control
+        - Key: SecurityLevel
+          Value: Private-Internal
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/EcsSecurityGroup/Resource
+  EcsSecurityGroupfromPeGptEcsStackAlbSecurityGroup7B61BB6E850177A2A1E0:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      Description: Allow traffic from ALB to Streamlit port
+      FromPort: 8501
+      GroupId:
+        Fn::GetAtt:
+          - EcsSecurityGroup44008BF1
+          - GroupId
+      SourceSecurityGroupId:
+        Fn::GetAtt:
+          - AlbSecurityGroup86A59E99
+          - GroupId
+      ToPort: 8501
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/EcsSecurityGroup/from PeGptEcsStackAlbSecurityGroup7B61BB6E:8501
+  PeGptLoadBalancer950B262D:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: "false"
+      Name: pe-gpt-alb
+      Scheme: internet-facing
+      SecurityGroups:
+        - Fn::GetAtt:
+            - AlbSecurityGroup86A59E99
+            - GroupId
+      Subnets:
+        - Ref: PeGptVpcPublicSubnetSubnet1Subnet7DAF0BD0
+        - Ref: PeGptVpcPublicSubnetSubnet2SubnetA8AAD82A
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Application-Load-Balancer
+        - Key: Project
+          Value: PE-GPT
+        - Key: Type
+          Value: Application-Load-Balancer
+      Type: application
+    DependsOn:
+      - PeGptVpcPublicSubnetSubnet1DefaultRouteC6B1EC9A
+      - PeGptVpcPublicSubnetSubnet1RouteTableAssociation60024CCE
+      - PeGptVpcPublicSubnetSubnet2DefaultRoute3675D910
+      - PeGptVpcPublicSubnetSubnet2RouteTableAssociationBE2DCBCC
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptLoadBalancer/Resource
+  PeGptLoadBalancerHttpListenerE3E8E29C:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn:
+            Ref: PeGptTargetGroup90B68ED1
+          Type: forward
+      LoadBalancerArn:
+        Ref: PeGptLoadBalancer950B262D
+      Port: 80
+      Protocol: HTTP
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptLoadBalancer/HttpListener/Resource
+  PeGptTargetGroup90B68ED1:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckPort: "8501"
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Matcher:
+        HttpCode: "200"
+      Name: pe-gpt-tg
+      Port: 8501
+      Protocol: HTTP
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Target-Group
+        - Key: Project
+          Value: PE-GPT
+        - Key: Protocol
+          Value: HTTP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: "30"
+        - Key: stickiness.enabled
+          Value: "false"
+      TargetType: ip
+      UnhealthyThresholdCount: 5
+      VpcId:
+        Ref: PeGptVpc6CC6AD1C
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptTargetGroup/Resource
+  PeGptServiceF1133696:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster:
+        Ref: PeGptCluster2C7A36BB
+      DeploymentConfiguration:
+        Alarms:
+          AlarmNames: []
+          Enable: false
+          Rollback: false
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      DesiredCount: 1
+      EnableECSManagedTags: false
+      EnableExecuteCommand: true
+      HealthCheckGracePeriodSeconds: 300
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: pe-gpt
+          ContainerPort: 8501
+          TargetGroupArn:
+            Ref: PeGptTargetGroup90B68ED1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - Fn::GetAtt:
+                - EcsSecurityGroup44008BF1
+                - GroupId
+          Subnets:
+            - Ref: PeGptVpcPrivateSubnetSubnet1SubnetA39ABED4
+            - Ref: PeGptVpcPrivateSubnetSubnet2SubnetEE84B4B2
+      PlatformVersion: LATEST
+      ServiceName: pe-gpt-service
+      ServiceRegistries:
+        - RegistryArn:
+            Fn::GetAtt:
+              - PeGptServiceCloudmapService5C412A55
+              - Arn
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: LaunchType
+          Value: Fargate
+        - Key: Name
+          Value: PE-GPT-ECS-Service
+        - Key: Project
+          Value: PE-GPT
+        - Key: ServiceType
+          Value: Web-Application
+      TaskDefinition:
+        Ref: PeGptTaskDefinition79D631B6
+    DependsOn:
+      - PeGptLoadBalancerHttpListenerE3E8E29C
+      - PeGptTaskRoleDefaultPolicy2B31B0BD
+      - PeGptTaskRoleA990EF15
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptService/Service
+  PeGptServiceTaskCountTarget67F7F5F2:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: 1
+      ResourceId:
+        Fn::Join:
+          - ""
+          - - service/
+            - Ref: PeGptCluster2C7A36BB
+            - /
+            - Fn::GetAtt:
+                - PeGptServiceF1133696
+                - Name
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: arn:aws:iam::893914327331:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+    DependsOn:
+      - PeGptTaskRoleDefaultPolicy2B31B0BD
+      - PeGptTaskRoleA990EF15
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptService/TaskCount/Target/Resource
+  PeGptServiceTaskCountTargetCpuScalingF9F2EF56:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: PeGptEcsStackPeGptServiceTaskCountTargetCpuScaling9B29A2AE
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId:
+        Ref: PeGptServiceTaskCountTarget67F7F5F2
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 300
+        TargetValue: 70
+    DependsOn:
+      - PeGptTaskRoleDefaultPolicy2B31B0BD
+      - PeGptTaskRoleA990EF15
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptService/TaskCount/Target/CpuScaling/Resource
+  PeGptServiceTaskCountTargetMemoryScaling35D1D6BE:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: PeGptEcsStackPeGptServiceTaskCountTargetMemoryScaling1781CF73
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId:
+        Ref: PeGptServiceTaskCountTarget67F7F5F2
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 300
+        TargetValue: 80
+    DependsOn:
+      - PeGptTaskRoleDefaultPolicy2B31B0BD
+      - PeGptTaskRoleA990EF15
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptService/TaskCount/Target/MemoryScaling/Resource
+  PeGptServiceTaskCountTargetRequestCountScalingLowerPolicy09F2EE24:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: PeGptEcsStackPeGptServiceTaskCountTargetRequestCountScalingLowerPolicy68DF783A
+      PolicyType: StepScaling
+      ScalingTargetId:
+        Ref: PeGptServiceTaskCountTarget67F7F5F2
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        MetricAggregationType: Average
+        StepAdjustments:
+          - MetricIntervalUpperBound: 0
+            ScalingAdjustment: -1
+    DependsOn:
+      - PeGptTaskRoleDefaultPolicy2B31B0BD
+      - PeGptTaskRoleA990EF15
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptService/TaskCount/Target/RequestCountScaling/LowerPolicy/Resource
+  PeGptServiceTaskCountTargetRequestCountScalingLowerAlarmF01BD809:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ComparisonOperator: LessThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      AlarmActions:
+        - Ref: PeGptServiceTaskCountTargetRequestCountScalingLowerPolicy09F2EE24
+      AlarmDescription: Lower threshold scaling alarm
+      Dimensions:
+        - Name: LoadBalancer
+          Value:
+            Fn::Join:
+              - ""
+              - - Fn::Select:
+                    - 1
+                    - Fn::Split:
+                        - /
+                        - Ref: PeGptLoadBalancerHttpListenerE3E8E29C
+                - /
+                - Fn::Select:
+                    - 2
+                    - Fn::Split:
+                        - /
+                        - Ref: PeGptLoadBalancerHttpListenerE3E8E29C
+                - /
+                - Fn::Select:
+                    - 3
+                    - Fn::Split:
+                        - /
+                        - Ref: PeGptLoadBalancerHttpListenerE3E8E29C
+        - Name: TargetGroup
+          Value:
+            Fn::GetAtt:
+              - PeGptTargetGroup90B68ED1
+              - TargetGroupFullName
+      MetricName: RequestCountPerTarget
+      Namespace: AWS/ApplicationELB
+      Period: 300
+      Statistic: Sum
+      Threshold: 30
+    DependsOn:
+      - PeGptTaskRoleDefaultPolicy2B31B0BD
+      - PeGptTaskRoleA990EF15
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptService/TaskCount/Target/RequestCountScaling/LowerAlarm/Resource
+  PeGptServiceTaskCountTargetRequestCountScalingUpperPolicy6552B545:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: PeGptEcsStackPeGptServiceTaskCountTargetRequestCountScalingUpperPolicy298558C9
+      PolicyType: StepScaling
+      ScalingTargetId:
+        Ref: PeGptServiceTaskCountTarget67F7F5F2
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        MetricAggregationType: Average
+        StepAdjustments:
+          - MetricIntervalLowerBound: 0
+            MetricIntervalUpperBound: 50
+            ScalingAdjustment: 1
+          - MetricIntervalLowerBound: 50
+            ScalingAdjustment: 2
+    DependsOn:
+      - PeGptTaskRoleDefaultPolicy2B31B0BD
+      - PeGptTaskRoleA990EF15
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptService/TaskCount/Target/RequestCountScaling/UpperPolicy/Resource
+  PeGptServiceTaskCountTargetRequestCountScalingUpperAlarm31FBC45A:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      AlarmActions:
+        - Ref: PeGptServiceTaskCountTargetRequestCountScalingUpperPolicy6552B545
+      AlarmDescription: Upper threshold scaling alarm
+      Dimensions:
+        - Name: LoadBalancer
+          Value:
+            Fn::Join:
+              - ""
+              - - Fn::Select:
+                    - 1
+                    - Fn::Split:
+                        - /
+                        - Ref: PeGptLoadBalancerHttpListenerE3E8E29C
+                - /
+                - Fn::Select:
+                    - 2
+                    - Fn::Split:
+                        - /
+                        - Ref: PeGptLoadBalancerHttpListenerE3E8E29C
+                - /
+                - Fn::Select:
+                    - 3
+                    - Fn::Split:
+                        - /
+                        - Ref: PeGptLoadBalancerHttpListenerE3E8E29C
+        - Name: TargetGroup
+          Value:
+            Fn::GetAtt:
+              - PeGptTargetGroup90B68ED1
+              - TargetGroupFullName
+      MetricName: RequestCountPerTarget
+      Namespace: AWS/ApplicationELB
+      Period: 300
+      Statistic: Sum
+      Threshold: 50
+    DependsOn:
+      - PeGptTaskRoleDefaultPolicy2B31B0BD
+      - PeGptTaskRoleA990EF15
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptService/TaskCount/Target/RequestCountScaling/UpperAlarm/Resource
+  PeGptServiceCloudmapService5C412A55:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      DnsConfig:
+        DnsRecords:
+          - TTL: 60
+            Type: A
+        NamespaceId:
+          Fn::GetAtt:
+            - PeGptNamespaceFE60700D
+            - Id
+        RoutingPolicy: MULTIVALUE
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+      Name: pe-gpt
+      NamespaceId:
+        Fn::GetAtt:
+          - PeGptNamespaceFE60700D
+          - Id
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: LaunchType
+          Value: Fargate
+        - Key: Name
+          Value: PE-GPT-ECS-Service
+        - Key: Project
+          Value: PE-GPT
+        - Key: ServiceType
+          Value: Web-Application
+    DependsOn:
+      - PeGptTaskRoleDefaultPolicy2B31B0BD
+      - PeGptTaskRoleA990EF15
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptService/CloudmapService/Resource
+  PeGptNamespaceFE60700D:
+    Type: AWS::ServiceDiscovery::PrivateDnsNamespace
+    Properties:
+      Name: pe-gpt.local
+      Vpc:
+        Ref: PeGptVpc6CC6AD1C
+      Description: Service discovery namespace for PE-GPT application
+      Tags:
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: PE-GPT-Service-Discovery-Namespace
+        - Key: Project
+          Value: PE-GPT
+        - Key: Purpose
+          Value: Service-Discovery
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/PeGptNamespace/Resource
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAA/31UyW7bMBD9lt5ptQ3Q5eo6CwwEqWAZuRYjaqIwljgCFxmGoH/vkJIsOU574uN7w/GbxbpJfv5IvnyCo13J4rCqVJ50mQN5EEz96VDeJN1zI8XmRT+nG5H6vFIy87lGF7gZ7cg73ENe4czP3NpakgqcIn0ODuBum4bjCdwDODzCSaRGtQznxFvt0DCeAgYn423t2OtrjdqJ+4qOj1QGfYIZSm+UOz0Y8k209V/irjRo7RW91ZHvRUWlTTpOfH4+4V4oqJNuR0P18UyJOxXtDqgXKA3HYENWOTJRmm9B5uybyluuN2jXcAMNSLaVGmpVgWbRVSvuwZQQ2m0Pt/iitJqa/Z4h7UBpNAtufJuhaZUcBjjCTEIVBhiSbMhrxz4rsE7JiqDIWdRS6bLlNVk3DdcZ3Tyy9itqg/+L+zJOcVl6jJnwQt+zL5781O7FtRcwh4F3ZNkoG+HtPTsOwbGWS2Y49oaXnB9kw7t5WpdE5rD5J7OW4dd7wb3wxRGcfOUuVGDqkCeCXtihkYWyklo0JzZ43eVx6W+1fYIaLU85yh/QfS92aMmbEMFLQfV8Dev0oTTti+CFQcd/75LNh/jf3jWeR6qpwOTNfm6/fku+8+fgzSq1MjxtVWOyG86/SaVzgyoEAAA=
+    Metadata:
+      aws:cdk:path: PeGptEcsStack/CDKMetadata/Default
+Outputs:
+  SecurityGroupConfiguration:
+    Description: Security group configuration following least privilege principle (Task 9)
+    Value:
+      Fn::Join:
+        - ""
+        - - |-
+            {
+              "albSecurityGroup": {
+                "id": "
+          - Fn::GetAtt:
+              - AlbSecurityGroup86A59E99
+              - GroupId
+          - |-
+            ",
+                "inbound": [
+                  "HTTP:80 from 0.0.0.0/0 (Internet access)",
+                  "HTTPS:443 from 0.0.0.0/0 (Internet access)"
+                ],
+                "outbound": [
+                  "TCP:8501 to ECS Security Group (Application traffic)"
+                ]
+              },
+              "ecsSecurityGroup": {
+                "id": "
+          - Fn::GetAtt:
+              - EcsSecurityGroup44008BF1
+              - GroupId
+          - |-
+            ",
+                "inbound": [
+                  "TCP:8501 from ALB Security Group (Application traffic only)"
+                ],
+                "outbound": [
+                  "HTTPS:443 to 0.0.0.0/0 (AWS services)",
+                  "HTTP:80 to 0.0.0.0/0 (Package downloads)",
+                  "DNS:53 UDP/TCP to 0.0.0.0/0 (Name resolution)",
+                  "NTP:123 UDP to 0.0.0.0/0 (Time sync)"
+                ]
+              },
+              "securityPrinciples": [
+                "Least privilege access control",
+                "ALB only accepts internet traffic on HTTP/HTTPS",
+                "ECS only accepts traffic from ALB",
+                "ECS has minimal outbound access for AWS services"
+              ]
+            }
+  VpcId:
+    Description: VPC ID for PE-GPT application
+    Value:
+      Ref: PeGptVpc6CC6AD1C
+  PublicSubnetIds:
+    Description: Public subnet IDs for ALB
+    Value:
+      Fn::Join:
+        - ""
+        - - Ref: PeGptVpcPublicSubnetSubnet1Subnet7DAF0BD0
+          - ","
+          - Ref: PeGptVpcPublicSubnetSubnet2SubnetA8AAD82A
+  PrivateSubnetIds:
+    Description: Private subnet IDs for ECS tasks
+    Value:
+      Fn::Join:
+        - ""
+        - - Ref: PeGptVpcPrivateSubnetSubnet1SubnetA39ABED4
+          - ","
+          - Ref: PeGptVpcPrivateSubnetSubnet2SubnetEE84B4B2
+  EcrRepositoryUri:
+    Description: ECR Repository URI for PE-GPT container images
+    Value:
+      Fn::Join:
+        - ""
+        - - Fn::Select:
+              - 4
+              - Fn::Split:
+                  - ":"
+                  - Fn::GetAtt:
+                      - PeGptRepository002EF393
+                      - Arn
+          - .dkr.ecr.
+          - Fn::Select:
+              - 3
+              - Fn::Split:
+                  - ":"
+                  - Fn::GetAtt:
+                      - PeGptRepository002EF393
+                      - Arn
+          - "."
+          - Ref: AWS::URLSuffix
+          - /
+          - Ref: PeGptRepository002EF393
+  EcrRepositoryName:
+    Description: ECR Repository name
+    Value:
+      Ref: PeGptRepository002EF393
+  TaskExecutionRoleArn:
+    Description: ECS Task Execution Role ARN
+    Value:
+      Fn::GetAtt:
+        - PeGptTaskExecutionRole28FFDB7F
+        - Arn
+  TaskRoleArn:
+    Description: ECS Task Role ARN for Bedrock access
+    Value:
+      Fn::GetAtt:
+        - PeGptTaskRoleA990EF15
+        - Arn
+  EcsClusterName:
+    Description: ECS Cluster name for PE-GPT application
+    Value:
+      Ref: PeGptCluster2C7A36BB
+  EcsClusterArn:
+    Description: ECS Cluster ARN
+    Value:
+      Fn::GetAtt:
+        - PeGptCluster2C7A36BB
+        - Arn
+  TaskDefinitionArn:
+    Description: ECS Task Definition ARN
+    Value:
+      Ref: PeGptTaskDefinition79D631B6
+  LoadBalancerDnsName:
+    Description: Application Load Balancer DNS name
+    Value:
+      Fn::GetAtt:
+        - PeGptLoadBalancer950B262D
+        - DNSName
+  LoadBalancerArn:
+    Description: Application Load Balancer ARN
+    Value:
+      Ref: PeGptLoadBalancer950B262D
+  TargetGroupArn:
+    Description: Target Group ARN for ECS service
+    Value:
+      Ref: PeGptTargetGroup90B68ED1
+  AlbSecurityGroupId:
+    Description: ALB Security Group ID
+    Value:
+      Fn::GetAtt:
+        - AlbSecurityGroup86A59E99
+        - GroupId
+  EcsSecurityGroupId:
+    Description: ECS Security Group ID
+    Value:
+      Fn::GetAtt:
+        - EcsSecurityGroup44008BF1
+        - GroupId
+  EcsServiceName:
+    Description: ECS Service name for PE-GPT application
+    Value:
+      Fn::GetAtt:
+        - PeGptServiceF1133696
+        - Name
+  EcsServiceArn:
+    Description: ECS Service ARN
+    Value:
+      Ref: PeGptServiceF1133696
+  ServiceDiscoveryNamespace:
+    Description: Service Discovery namespace for internal communication
+    Value: pe-gpt.local
+Parameters:
+  BootstrapVersion:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cdk-bootstrap/hnb659fds/version
+    Description: Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]
+Rules:
+  CheckBootstrapVersion:
+    Assertions:
+      - Assert:
+          Fn::Not:
+            - Fn::Contains:
+                - - "1"
+                  - "2"
+                  - "3"
+                  - "4"
+                  - "5"
+                - Ref: BootstrapVersion
+        AssertDescription: CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.
+

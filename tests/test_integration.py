@@ -141,7 +141,7 @@ class IntegrationTestRunner:
                 config_valid = False
                 config_issues.append("Missing Bedrock model ID")
             
-            if self.config.max_tokens < 1 or self.config.max_tokens > 4096:
+            if self.config.max_tokens < 1 or self.config.max_tokens > 64000:
                 config_valid = False
                 config_issues.append(f"Invalid max_tokens: {self.config.max_tokens}")
             
