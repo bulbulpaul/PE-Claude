@@ -9,32 +9,19 @@ export interface PeGptEcrStackProps extends cdk.StackProps {
 }
 
 export class PeGptEcrStack extends cdk.Stack {
-  public readonly repository: ecr.Repository;
+  public readonly repository: ecr.IRepository;
 
   constructor(scope: Construct, id: string, props: PeGptEcrStackProps) {
     super(scope, id, props);
 
-    this.repository = new ecr.Repository(this, 'PeGptRepository', {
-      repositoryName: props.config.ecrConfig.repositoryName,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      lifecycleRules: [
-        {
-          maxImageCount: props.config.ecrConfig.imageRetentionCount,
-          description: 'Keep only recent images',
-        },
-      ],
-    });
+    // 既存のECRリポジトリをインポート
+    this.repository = ecr.Repository.fromRepositoryName(
+      this, 'PeGptRepository', props.config.ecrConfig.repositoryName
+    );
 
     new cdk.CfnOutput(this, 'RepositoryUri', {
       value: this.repository.repositoryUri,
       description: 'ECR Repository URI',
-      exportName: `${props.environment}-PeGptRepositoryUri`,
-    });
-
-    new cdk.CfnOutput(this, 'RepositoryArn', {
-      value: this.repository.repositoryArn,
-      description: 'ECR Repository ARN',
-      exportName: `${props.environment}-PeGptRepositoryArn`,
     });
   }
 }

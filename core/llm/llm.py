@@ -17,6 +17,18 @@ import boto3
 import os
 import time
 from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.config import Config as BotocoreConfig
+
+# Bedrock Runtime クライアント共通設定。
+# Claude Opus など応答が遅いモデルでは boto3 デフォルトの read_timeout(60秒)を
+# 超えて "Read timeout on endpoint URL" になるため延長する。
+# リトライは robust_bedrock_call 側で行うため botocore 側は無効化(max_attempts=1)し、
+# 二重リトライによる過剰な待機を避ける。
+BEDROCK_RUNTIME_BOTO_CONFIG = BotocoreConfig(
+    read_timeout=300,
+    connect_timeout=15,
+    retries={"max_attempts": 1},
+)
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
 from llama_index.core.llms import ChatMessage, MessageRole
 
@@ -185,7 +197,11 @@ def bedrock_init(model_id=None, region=None):
         debug_info(f"Using model: {config.get_model_display_name()} ({config.bedrock_model_id})")
         
         # Initialize Bedrock Runtime client
-        bedrock_client = boto3.client('bedrock-runtime', region_name=config.aws_region)
+        bedrock_client = boto3.client(
+            'bedrock-runtime',
+            region_name=config.aws_region,
+            config=BEDROCK_RUNTIME_BOTO_CONFIG,
+        )
         
         # Test client connectivity (optional - don't fail if this doesn't work)
         try:
@@ -292,7 +308,11 @@ class BedrockLLM(LLM):
         """Lazy initialization of Bedrock client with error handling"""
         if self.client is None:
             try:
-                self.client = boto3.client('bedrock-runtime', region_name=self.region)
+                self.client = boto3.client(
+                    'bedrock-runtime',
+                    region_name=self.region,
+                    config=BEDROCK_RUNTIME_BOTO_CONFIG,
+                )
             except Exception as e:
                 raise BedrockError(f"Bedrockクライアントの初期化に失敗しました: {str(e)}", "ClientInitError", e)
         return self.client
@@ -1151,7 +1171,7 @@ def robust_bedrock_call(client, model_id, request_body, max_retries=3):
             st.error(user_message)
             raise BedrockError(user_message, error_code, e)
                 
-        except json.JSONEncodeError as e:
+        except (TypeError, ValueError) as e:
             error_msg = "リクエストデータのJSON変換に失敗しました。"
             st.error(f"🔧 **データ形式エラー**: {error_msg}")
             raise BedrockError(error_msg, "JSONEncodeError", e)

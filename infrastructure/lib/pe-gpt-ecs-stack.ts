@@ -87,10 +87,10 @@ export class PeGptEcsStack extends cdk.Stack {
     return new cognito.UserPool(this, 'PeGptUserPool', {
       userPoolName: 'pe-gpt-user-pool',
       signInAliases: { email: true },
-      selfSignUpEnabled: false,
+      selfSignUpEnabled: true,
       userVerification: {
-        emailSubject: 'PE-Claude アカウント認証',
-        emailBody: 'PE-Claudeへようこそ！認証コード: {####}',
+        emailSubject: 'PE-GPT アカウント認証',
+        emailBody: 'PE-GPTへようこそ！認証コード: {####}',
         emailStyle: cognito.VerificationEmailStyle.CODE,
       },
       passwordPolicy: {
@@ -212,7 +212,7 @@ export class PeGptEcsStack extends cdk.Stack {
     
     // UserPoolClientIdをハードコード（循環依存を回避）
     // 注意: 初回デプロイ後にこの値を更新する必要があります
-    const hardcodedClientId = 'rbo9ej45uk2nji5jotb7fqdlh';
+    const hardcodedClientId = '4rga0d0v0q3t2hl2rqofjbfrvt';
 
     // Lambda@Edge関数（認証チェック）
     const authFunction = new lambda.Function(this, 'AuthEdgeFunction', {
@@ -331,6 +331,18 @@ exports.handler = async (event) => {
     return request;
   }
 
+  // 静的アセット（JS/CSS/フォント/画像等）は認証をバイパスする。
+  // これらは非機密の公開アセットであり、認証でログインHTMLへ302すると
+  // ブラウザの動的import（例: Spinner.<hash>.js）が
+  // "error loading dynamically imported module" で失敗するため。
+  if (request.uri.startsWith('/static/') ||
+      request.uri.startsWith('/app/static/') ||
+      request.uri.startsWith('/media/') ||
+      request.uri === '/favicon.png' ||
+      request.uri === '/favicon.ico') {
+    return request;
+  }
+
   if (request.uri === '/callback') {
     return generateCallbackPage();
   }
@@ -387,6 +399,14 @@ exports.handler = async (event) => {
                 'bedrock:InvokeModelWithResponseStream',
                 'bedrock:Retrieve',
                 'bedrock:RetrieveAndGenerate',
+              ],
+              resources: ['*'],
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'aws-marketplace:ViewSubscriptions',
+                'aws-marketplace:Subscribe',
               ],
               resources: ['*'],
             }),

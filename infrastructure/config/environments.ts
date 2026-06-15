@@ -39,7 +39,7 @@ export const environments: { [key: string]: EnvironmentConfig } = {
     },
     albConfig: {
       cognitoConfig: {
-        userPoolDomainPrefix: 'pe-gpt-auth-dev-072918826049',
+        userPoolDomainPrefix: 'pe-gpt-auth-development',
       },
     },
     cloudFrontConfig: {
